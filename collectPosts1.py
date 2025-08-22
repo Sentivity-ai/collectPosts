@@ -28,8 +28,8 @@ nltk.download("wordnet", download_dir=nltk_data_path)
 nltk.data.path.append(nltk_data_path)
 
 reddit = praw.Reddit(
-    client_id=os.getenv("REDDIT_CLIENT_ID", "YOUR_CLIENT_ID"),
-    client_secret=os.getenv("REDDIT_CLIENT_SECRET", "YOUR_CLIENT_SECRET"),
+    client_id=os.getenv("REDDIT_CLIENT_ID", "F9rgR81aVwJSjyB0cfqzLQ"),
+    client_secret=os.getenv("REDDIT_CLIENT_SECRET", "jW9w9dSkntRzjlo2_S_HKRxaiSFgVw"),
     user_agent="sentivityb2c/0.1"
 )
 
