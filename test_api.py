@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
-"""
-Test script for the Social Media Post Collector API
-"""
 
 import requests
 import json
 import os
 from datetime import datetime
 
-# API base URL (change this for production)
 BASE_URL = "http://localhost:8000"
 
 def test_health():
-    """Test the health endpoint"""
     print("🔍 Testing health endpoint...")
     try:
         response = requests.get(f"{BASE_URL}/health")
@@ -27,7 +22,6 @@ def test_health():
         return False
 
 def test_scrape_reddit():
-    """Test Reddit scraping"""
     print("\n🔍 Testing Reddit scraping...")
     try:
         response = requests.get(f"{BASE_URL}/scrape", params={
@@ -49,7 +43,6 @@ def test_scrape_reddit():
         return False
 
 def test_scrape_quora():
-    """Test Quora scraping"""
     print("\n🔍 Testing Quora scraping...")
     try:
         response = requests.get(f"{BASE_URL}/scrape", params={
@@ -70,7 +63,6 @@ def test_scrape_quora():
         return False
 
 def test_scrape_instagram():
-    """Test Instagram scraping"""
     print("\n🔍 Testing Instagram scraping...")
     try:
         response = requests.get(f"{BASE_URL}/scrape", params={
@@ -91,7 +83,6 @@ def test_scrape_instagram():
         return False
 
 def test_hashtag_generation():
-    """Test hashtag generation"""
     print("\n🔍 Testing hashtag generation...")
     
     test_posts = [
@@ -108,7 +99,7 @@ def test_hashtag_generation():
     try:
         response = requests.post(
             f"{BASE_URL}/hashtags",
-            json=test_posts,  # Send posts directly, not wrapped in {"posts": ...}
+            json=test_posts,
             headers={"Content-Type": "application/json"}
         )
         
@@ -125,7 +116,6 @@ def test_hashtag_generation():
         return False
 
 def test_enhanced_hashtag_generation():
-    """Test enhanced hashtag generation"""
     print("\n🔍 Testing enhanced hashtag generation...")
     
     test_posts = [
@@ -167,7 +157,6 @@ def test_enhanced_hashtag_generation():
         return False
 
 def test_multi_source_scraping():
-    """Test multi-source scraping"""
     print("\n🔍 Testing multi-source scraping...")
     
     try:
@@ -196,7 +185,6 @@ def test_multi_source_scraping():
         return False
 
 def test_upload_to_hf():
-    """Test Hugging Face upload (requires HF_TOKEN)"""
     print("\n🔍 Testing Hugging Face upload...")
     
     if not os.getenv("HF_TOKEN"):
@@ -238,7 +226,6 @@ def test_upload_to_hf():
         return False
 
 def main():
-    """Run all tests"""
     print("🚀 Starting API tests...\n")
     
     tests = [

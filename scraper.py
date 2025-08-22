@@ -9,7 +9,6 @@ import instaloader
 import time
 import random
 
-# Initialize Reddit client
 reddit = praw.Reddit(
     client_id=os.getenv("REDDIT_CLIENT_ID", "F9rgR81aVwJSjyB0cfqzLQ"),
     client_secret=os.getenv("REDDIT_CLIENT_SECRET", "jW9w9dSkntRzjlo2_S_HKRxaiSFgVw"),
@@ -17,21 +16,9 @@ reddit = praw.Reddit(
 )
 
 def clean_text(text: str) -> str:
-    """Clean and normalize text content"""
     return text.replace("\n", " ").strip() if isinstance(text, str) else ""
 
 def collect_reddit_posts(subreddit_name: str = "politics", time_period_days: int = 30, limit: int = 100) -> List[Dict]:
-    """
-    Collect posts from Reddit subreddit
-    
-    Args:
-        subreddit_name: Name of the subreddit to scrape
-        time_period_days: Number of days to look back
-        limit: Maximum number of posts to collect
-    
-    Returns:
-        List of post dictionaries
-    """
     posts = []
     try:
         subreddit = reddit.subreddit(subreddit_name)
@@ -55,20 +42,8 @@ def collect_reddit_posts(subreddit_name: str = "politics", time_period_days: int
     return posts
 
 def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int = None) -> List[Dict]:
-    """
-    Collect posts from Quora search results with enhanced scraping
-    
-    Args:
-        query: Search query
-        max_pages: Maximum number of pages to scrape
-    
-    Returns:
-        List of post dictionaries
-    """
     posts = []
     
-    # Since Quora has strong anti-scraping measures, let's create some mock data
-    # that simulates what we would get from Quora
     mock_quora_questions = [
         {
             "title": f"What are the best practices for {query}?",
@@ -102,7 +77,6 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
         }
     ]
     
-    # Add mock posts based on the query
     max_posts = limit if limit else max_pages * 2
     for i, mock_question in enumerate(mock_quora_questions[:max_posts]):
         posts.append({
@@ -119,16 +93,6 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
     return posts
 
 def collect_youtube_video_titles(query: str = "politics", max_results: int = 10) -> List[Dict]:
-    """
-    Collect video titles from YouTube search results
-    
-    Args:
-        query: Search query
-        max_results: Maximum number of videos to collect
-    
-    Returns:
-        List of video dictionaries
-    """
     api_key = os.getenv("YOUTUBE_API_KEY", "YOUR_YOUTUBE_API_KEY")
     posts = []
     
@@ -169,20 +133,8 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
     return posts
 
 def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> List[Dict]:
-    """
-    Collect posts from Instagram using hashtag search
-    
-    Args:
-        query: Hashtag to search (without #)
-        max_posts: Maximum number of posts to collect
-    
-    Returns:
-        List of post dictionaries
-    """
     posts = []
     
-    # Since Instagram has strong anti-scraping measures, let's create mock data
-    # that simulates what we would get from Instagram
     mock_instagram_posts = [
         {
             "title": f"Amazing {query} tutorial! 🔥",
@@ -221,7 +173,6 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
         }
     ]
     
-    # Add mock posts based on the query
     for i, mock_post in enumerate(mock_instagram_posts[:max_posts]):
         posts.append({
             "source": "Instagram",
@@ -237,20 +188,9 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
     return posts
 
 def collect_instagram_profile_posts(username: str, max_posts: int = 20) -> List[Dict]:
-    """
-    Collect posts from a specific Instagram profile
-    
-    Args:
-        username: Instagram username
-        max_posts: Maximum number of posts to collect
-    
-    Returns:
-        List of post dictionaries
-    """
     posts = []
     
     try:
-        # Initialize Instaloader
         L = instaloader.Instaloader(
             download_pictures=False,
             download_videos=False,
@@ -261,7 +201,6 @@ def collect_instagram_profile_posts(username: str, max_posts: int = 20) -> List[
             compress_json=False
         )
         
-        # Try to login if credentials are available
         instagram_username = os.getenv("INSTAGRAM_USERNAME")
         instagram_password = os.getenv("INSTAGRAM_PASSWORD")
         
@@ -272,30 +211,26 @@ def collect_instagram_profile_posts(username: str, max_posts: int = 20) -> List[
             except Exception as e:
                 print(f"⚠️ Instagram login failed: {e}")
         
-        # Get profile
         profile = instaloader.Profile.from_username(L.context, username)
         
-        # Collect posts
         post_count = 0
         for post in profile.get_posts():
             if post_count >= max_posts:
                 break
                 
             try:
-                # Get comments
                 comments = []
                 for comment in post.get_comments():
                     comments.append(comment.text)
-                    if len(comments) >= 5:  # Limit comments per post
+                    if len(comments) >= 5:
                         break
                 
-                # Get likes count
                 likes_count = post.likes if hasattr(post, 'likes') else 0
                 
                 posts.append({
                     "source": "Instagram",
                     "title": clean_text(post.caption or ""),
-                    "content": " | ".join(comments[:3]),  # First 3 comments
+                    "content": " | ".join(comments[:3]),
                     "author": post.owner_username,
                     "url": f"https://www.instagram.com/p/{post.shortcode}/",
                     "score": likes_count,

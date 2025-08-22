@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Hashtag Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #0d1117;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #161b22;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #ffffff;
+        }
+
+        select, input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background-color: #21262d;
+            color: #ffffff;
+            font-size: 14px;
+        }
+
+        select:focus, input:focus, textarea:focus {
+            outline: none;
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin: 30px 0;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: #238636;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #2ea043;
+        }
+
+        .btn-secondary {
+            background-color: #21262d;
+            color: white;
+            border: 1px solid #30363d;
+        }
+
+        .btn-secondary:hover {
+            background-color: #30363d;
+        }
+
+        .output-section {
+            margin-top: 30px;
+        }
+
+        .output-box {
+            background-color: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 10px;
+            min-height: 100px;
+            white-space: pre-wrap;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            color: #e6edf3;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #58a6ff;
+            margin: 20px 0;
+        }
+
+        .error {
+            color: #f85149;
+            background-color: rgba(248, 81, 73, 0.1);
+            border: 1px solid rgba(248, 81, 73, 0.3);
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+
+        .success {
+            color: #3fb950;
+            background-color: rgba(63, 185, 80, 0.1);
+            border: 1px solid rgba(63, 185, 80, 0.3);
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Social Hashtag Analyzer</h1>
+        
+        <div class="form-group">
+            <label for="sources">Sources (All sources will be analyzed)</label>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <label style="display: flex; align-items: center; gap: 5px;">
+                    <input type="checkbox" id="reddit" value="reddit" checked> Reddit
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px;">
+                    <input type="checkbox" id="quora" value="quora" checked> Quora
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px;">
+                    <input type="checkbox" id="instagram" value="instagram" checked> Instagram
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px;">
+                    <input type="checkbox" id="youtube" value="youtube" checked> YouTube
+                </label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="query">Subreddit / Keyword / Hashtag</label>
+            <input type="text" id="query" placeholder="Enter subreddit name, keyword, or hashtag">
+        </div>
+
+        <div class="form-group">
+            <label for="timeRange">Time Range</label>
+            <select id="timeRange">
+                <option value="7">Past Week</option>
+                <option value="30" selected>Past Month</option>
+                <option value="90">Past 3 Months</option>
+                <option value="180">Past 6 Months</option>
+                <option value="365">Past Year</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="limit">Limit</label>
+            <input type="number" id="limit" value="50" min="1" max="500">
+        </div>
+
+        <div class="form-group">
+            <label for="hfRepo">HF Repo (e.g. user/myspace)</label>
+            <input type="text" id="hfRepo" placeholder="username/repo-name">
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" onclick="analyze()">Analyze</button>
+            <button class="btn-secondary" onclick="uploadToHF()">Upload to Hugging Face</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <p>Processing... Please wait.</p>
+        </div>
+
+        <div class="output-section">
+            <label>Status</label>
+            <div class="output-box" id="status"></div>
+        </div>
+
+        <div class="output-section">
+            <label>Hashtags</label>
+            <div class="output-box" id="hashtags"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusBox = document.getElementById('status');
+            statusBox.innerHTML = message;
+            statusBox.className = `output-box ${type}`;
+        }
+
+        function showHashtags(hashtags) {
+            const hashtagsBox = document.getElementById('hashtags');
+            if (Array.isArray(hashtags)) {
+                hashtagsBox.innerHTML = hashtags.join(' ');
+            } else {
+                hashtagsBox.innerHTML = hashtags;
+            }
+        }
+
+        async function analyze() {
+            const query = document.getElementById('query').value;
+            const days = document.getElementById('timeRange').value;
+            const limit = document.getElementById('limit').value;
+
+            if (!query) {
+                showStatus('Please enter a query', 'error');
+                return;
+            }
+
+            // Get selected sources
+            const sources = [];
+            if (document.getElementById('reddit').checked) sources.push('reddit');
+            if (document.getElementById('quora').checked) sources.push('quora');
+            if (document.getElementById('instagram').checked) sources.push('instagram');
+            if (document.getElementById('youtube').checked) sources.push('youtube');
+
+            if (sources.length === 0) {
+                showStatus('Please select at least one source', 'error');
+                return;
+            }
+
+            showLoading();
+            showStatus(`Starting analysis across ${sources.length} sources: ${sources.join(', ')}...`);
+
+            try {
+                // Use multi-source scraping endpoint
+                const scrapeResponse = await fetch(`${API_BASE}/scrape-multi-source`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        sources: sources,
+                        query: query,
+                        days: parseInt(days),
+                        limit_per_source: parseInt(limit)
+                    })
+                });
+
+                const scrapeData = await scrapeResponse.json();
+
+                if (scrapeResponse.ok) {
+                    const totalPosts = scrapeData.total_posts || 0;
+                    const sourceBreakdown = scrapeData.source_breakdown || {};
+                    
+                    let statusMessage = `✅ Analysis complete!\n\n`;
+                    statusMessage += `📊 Total posts collected: ${totalPosts}\n\n`;
+                    
+                    for (const [source, count] of Object.entries(sourceBreakdown)) {
+                        statusMessage += `• ${source.charAt(0).toUpperCase() + source.slice(1)}: ${count} posts\n`;
+                    }
+                    
+                    if (totalPosts > 0) {
+                        statusMessage += `\n🎯 Generated ${scrapeData.hashtags_count || 0} hashtags from all sources`;
+                        showHashtags(scrapeData.hashtags || []);
+                    } else {
+                        statusMessage += `\n⚠️ No posts found. Try a different query or sources.`;
+                    }
+                    
+                    showStatus(statusMessage, 'success');
+                } else {
+                    showStatus(`❌ Analysis failed: ${scrapeData.detail}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function uploadToHF() {
+            const hfRepo = document.getElementById('hfRepo').value;
+            
+            if (!hfRepo) {
+                showStatus('Please enter a Hugging Face repository ID', 'error');
+                return;
+            }
+
+            showLoading();
+            showStatus('Uploading to Hugging Face...');
+
+            try {
+                // First analyze to get posts from all sources
+                const query = document.getElementById('query').value;
+                const days = document.getElementById('timeRange').value;
+                const limit = document.getElementById('limit').value;
+
+                // Get selected sources
+                const sources = [];
+                if (document.getElementById('reddit').checked) sources.push('reddit');
+                if (document.getElementById('quora').checked) sources.push('quora');
+                if (document.getElementById('instagram').checked) sources.push('instagram');
+                if (document.getElementById('youtube').checked) sources.push('youtube');
+
+                const scrapeResponse = await fetch(`${API_BASE}/scrape-multi-source`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        sources: sources,
+                        query: query,
+                        days: parseInt(days),
+                        limit_per_source: parseInt(limit)
+                    })
+                });
+
+                const scrapeData = await scrapeResponse.json();
+
+                if (scrapeResponse.ok && scrapeData.total_posts > 0) {
+                    // Upload to Hugging Face
+                    const uploadResponse = await fetch(`${API_BASE}/upload`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            posts: scrapeData.all_posts || [],
+                            repo_id: hfRepo,
+                            filename: `multi_source_${query.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`
+                        })
+                    });
+
+                    const uploadData = await uploadResponse.json();
+                    
+                    if (uploadResponse.ok) {
+                        showStatus(`✅ ${uploadData.message}`, 'success');
+                    } else {
+                        showStatus(`❌ Upload failed: ${uploadData.detail}`, 'error');
+                    }
+                } else {
+                    showStatus('❌ No posts to upload. Please run analysis first.', 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Add CORS headers for development
+        if (window.location.hostname === 'localhost') {
+            // This is just for development - in production you'd handle CORS properly
+            console.log('Running in development mode');
+        }
+    </script>
+</body>
+</html>

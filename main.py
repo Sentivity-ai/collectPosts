@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException, Query, Body
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Optional
 import pandas as pd
 import os
@@ -26,8 +28,22 @@ app = FastAPI(
     version="1.0.0"
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 @app.get("/")
 async def root():
+    return FileResponse("static/index.html")
+
+@app.get("/api")
+async def api_info():
     return {
         "message": "Social Media Post Collector & Hashtag Generator API",
         "endpoints": {
@@ -44,14 +60,11 @@ async def scrape_posts(
     days: int = Query(30, description="Number of days to look back (for Reddit)"),
     limit: int = Query(100, description="Maximum number of posts to collect")
 ):
-    """
-    Scrape posts from the specified platform
-    """
     try:
         if source.lower() == "reddit":
             posts = collect_reddit_posts(query, days, limit)
         elif source.lower() == "quora":
-            posts = collect_quora_posts(query, limit=limit)  # Pass limit directly
+            posts = collect_quora_posts(query, limit=limit)
         elif source.lower() == "instagram":
             posts = collect_instagram_posts(query, limit)
         elif source.lower() == "instagram_profile":
@@ -73,9 +86,6 @@ async def scrape_posts(
 
 @app.post("/hashtags")
 async def generate_hashtags_endpoint(posts: List[Dict] = Body(..., description="List of posts with title and content")):
-    """
-    Generate hashtags from a list of posts
-    """
     try:
         if not posts:
             raise HTTPException(status_code=400, detail="No posts provided")
@@ -100,9 +110,6 @@ async def enhanced_hashtags_endpoint(
     topic_keywords: List[str] = Body(None, description="Keywords for topic relevance filtering"),
     max_hashtags: int = Body(50, description="Maximum number of hashtags to return")
 ):
-    """
-    Generate enhanced hashtags with advanced features
-    """
     try:
         if not posts:
             raise HTTPException(status_code=400, detail="No posts provided")
@@ -138,9 +145,6 @@ async def scrape_multiple_sources(
     days: int = Body(30, description="Number of days to look back (for Reddit)"),
     limit_per_source: int = Body(50, description="Maximum posts per source")
 ):
-    """
-    Scrape posts from multiple sources simultaneously
-    """
     try:
         all_posts = []
         source_results = {}
@@ -171,16 +175,20 @@ async def scrape_multiple_sources(
                     "posts": []
                 }
         
-        # Generate hashtags from all sources combined
         merged_hashtags = enhanced_generate_hashtags(all_posts) if all_posts else []
+        
+        source_breakdown = {}
+        for source, result in source_results.items():
+            source_breakdown[source] = result.get("posts_count", 0)
         
         return {
             "status": "success",
             "query": query,
             "total_posts": len(all_posts),
-            "source_results": source_results,
-            "merged_hashtags": merged_hashtags,
-            "hashtags_count": len(merged_hashtags)
+            "source_breakdown": source_breakdown,
+            "hashtags": merged_hashtags,
+            "hashtags_count": len(merged_hashtags),
+            "all_posts": all_posts
         }
         
     except Exception as e:
@@ -192,22 +200,16 @@ async def upload_to_hf(
     repo_id: str = Body(..., description="Hugging Face repository ID (e.g., 'username/repo-name')"),
     filename: str = Body("posts.csv", description="Filename for the CSV file")
 ):
-    """
-    Upload posts to Hugging Face Hub
-    """
     try:
         if not posts:
             raise HTTPException(status_code=400, detail="No posts provided")
         
-        # Convert posts to DataFrame
         df = pd.DataFrame(posts)
         df["upload_date"] = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
         
-        # Generate hashtags and add to DataFrame
         hashtags = generate_hashtags(posts)
         df["hashtags"] = ", ".join(hashtags)
         
-        # Upload to Hugging Face
         result = upload_dataframe_to_hf(df, repo_id, filename)
         
         return {
@@ -223,9 +225,6 @@ async def upload_to_hf(
 
 @app.get("/health")
 async def health_check():
-    """
-    Health check endpoint
-    """
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
 if __name__ == "__main__":
