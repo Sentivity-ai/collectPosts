@@ -129,28 +129,50 @@ GET /health
 
 ## Deployment on Render
 
-### Automatic Deployment
+### Quick Deployment
 
-1. **Connect your GitHub repository to Render**
-2. **Create a new Web Service**
-3. **Configure the service:**
-   - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
-   - **Environment:** Python
-
-4. **Set environment variables in Render dashboard:**
+1. **Push your code to GitHub**
+2. **Go to [Render Dashboard](https://dashboard.render.com/)**
+3. **Click "New +" → "Web Service"**
+4. **Connect your GitHub repository**
+5. **Render will automatically detect the `render.yaml` configuration**
+6. **Set your environment variables in the Render dashboard:**
    - `REDDIT_CLIENT_ID`
    - `REDDIT_CLIENT_SECRET`
    - `YOUTUBE_API_KEY`
    - `HF_TOKEN`
+   - `INSTAGRAM_USERNAME` (optional)
+   - `INSTAGRAM_PASSWORD` (optional)
 
-### Manual Deployment
+### Environment Variables Setup
 
-1. **Push your code to GitHub**
-2. **Use the provided `render.yaml`:**
-   ```bash
-   # Render will automatically detect and use render.yaml
-   ```
+In your Render dashboard, go to your service → Environment → Add Environment Variable:
+
+| Variable | Value |
+|----------|-------|
+| `REDDIT_CLIENT_ID` | Your Reddit client ID |
+| `REDDIT_CLIENT_SECRET` | Your Reddit client secret |
+| `YOUTUBE_API_KEY` | Your YouTube API key |
+| `HF_TOKEN` | Your Hugging Face token |
+| `INSTAGRAM_USERNAME` | Your Instagram username (optional) |
+| `INSTAGRAM_PASSWORD` | Your Instagram password (optional) |
+
+### Deployment Files
+
+The following files are configured for Render deployment:
+- `render.yaml` - Render service configuration
+- `runtime.txt` - Python version specification
+- `Procfile` - Alternative deployment configuration
+- `requirements.txt` - Python dependencies
+
+### After Deployment
+
+Once deployed, your service will be available at:
+`https://your-service-name.onrender.com`
+
+- **Web Interface:** `https://your-service-name.onrender.com/`
+- **API Documentation:** `https://your-service-name.onrender.com/docs`
+- **Health Check:** `https://your-service-name.onrender.com/health`
 
 ## API Usage Examples
 

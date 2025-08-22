@@ -3,8 +3,11 @@ services:
     name: social-media-collector
     env: python
     plan: free
+    region: oregon
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: REDDIT_CLIENT_ID
         sync: false
@@ -18,3 +21,5 @@ services:
         sync: false
       - key: HF_TOKEN
         sync: false
+      - key: PYTHON_VERSION
+        value: 3.9.18
