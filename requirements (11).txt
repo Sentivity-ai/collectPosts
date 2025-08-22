@@ -1,0 +1,12 @@
+gradio
+praw
+pandas
+matplotlib
+nltk
+scikit-learn
+requests
+beautifulsoup4
+instaloader
+huggingface_hub
+scipy
+schedule
