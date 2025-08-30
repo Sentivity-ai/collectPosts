@@ -184,7 +184,25 @@ class HiveIntegration:
         if not posts:
             return {}
         
-        df = pd.DataFrame(posts)
+        # Create DataFrame with all required fields
+        headlines_data = []
+        for post in posts:
+            headline_row = {
+                'source': post.get('source', ''),
+                'title': post.get('title', ''),
+                'content': post.get('content', ''),
+                'author': post.get('author', ''),
+                'score': post.get('score', 0),
+                'url': post.get('url', ''),
+                'timestamp': post.get('timestamp', ''),
+                'engagement_score': self._calculate_engagement_score(post),
+                'sentiment_keywords': self._extract_sentiment_keywords(post),
+                'topic_category': self._categorize_topic(post),
+                'viral_potential': self._assess_viral_potential(post)
+            }
+            headlines_data.append(headline_row)
+        
+        df = pd.DataFrame(headlines_data)
         
         summary = {
             'total_posts': len(posts),
@@ -203,7 +221,7 @@ class HiveIntegration:
         """Analyze sentiment distribution for headline optimization"""
         sentiment_counts = {}
         for keywords in df['sentiment_keywords']:
-            if keywords:
+            if keywords and isinstance(keywords, str):
                 for keyword in keywords.split(', '):
                     sentiment_counts[keyword] = sentiment_counts.get(keyword, 0) + 1
         
@@ -214,9 +232,12 @@ class HiveIntegration:
         angles = []
         
         # High engagement posts
-        high_engagement = df[df['engagement_score'] > df['engagement_score'].quantile(0.8)]
-        if not high_engagement.empty:
-            angles.append(f"Focus on {high_engagement['topic_category'].mode().iloc[0]} content (high engagement)")
+        if len(df) > 0:
+            high_engagement = df[df['engagement_score'] > df['engagement_score'].quantile(0.8)]
+            if not high_engagement.empty:
+                top_topic = high_engagement['topic_category'].mode()
+                if not top_topic.empty:
+                    angles.append(f"Focus on {top_topic.iloc[0]} content (high engagement)")
         
         # Viral potential
         viral_posts = df[df['viral_potential'] == 'high']
@@ -224,8 +245,10 @@ class HiveIntegration:
             angles.append(f"Leverage {len(viral_posts)} high-viral-potential posts")
         
         # Trending topics
-        trending_topics = df['topic_category'].value_counts().head(3)
-        angles.append(f"Cover trending topics: {', '.join(trending_topics.index)}")
+        if len(df) > 0:
+            trending_topics = df['topic_category'].value_counts().head(3)
+            if not trending_topics.empty:
+                angles.append(f"Cover trending topics: {', '.join(trending_topics.index)}")
         
         return angles
 
