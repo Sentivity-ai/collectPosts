@@ -21,6 +21,7 @@ from hashtag_utils import (
     merge_hashtags_from_sources
 )
 from upload_utils import upload_dataframe_to_hf
+from hive_integration import HiveIntegration, create_hive_ready_csv
 
 app = FastAPI(
     title="Social Media Post Collector & Hashtag Generator",
@@ -222,6 +223,67 @@ async def upload_to_hf(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@app.post("/hive/process")
+async def process_for_hive(request: HiveRequest):
+    """Process posts for Hive headline generation workflow"""
+    try:
+        hive = HiveIntegration()
+        
+        # Generate Hive-ready CSV
+        csv_path = hive.create_headlines_csv(request.posts)
+        
+        # Generate summary for headline optimization
+        summary = hive.generate_headlines_summary(request.posts)
+        
+        result = {
+            "status": "success",
+            "csv_path": csv_path,
+            "summary": summary,
+            "total_posts": len(request.posts)
+        }
+        
+        # Upload to Hugging Face if requested
+        if request.upload_to_hf and request.hive_repo:
+            upload_result = hive.upload_to_hf_dataset(csv_path, request.hive_repo)
+            result["upload_result"] = upload_result
+        
+        # Send to Hive for headline generation if requested
+        if request.generate_headlines:
+            hive_result = hive.send_to_hive(csv_path)
+            result["hive_result"] = hive_result
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/hive/csv")
+async def generate_hive_csv(posts: List[dict], filename: Optional[str] = None):
+    """Generate Hive-ready CSV file"""
+    try:
+        csv_path = create_hive_ready_csv(posts)
+        return {
+            "status": "success",
+            "csv_path": csv_path,
+            "filename": os.path.basename(csv_path),
+            "total_posts": len(posts)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/hive/summary")
+async def get_hive_summary(posts: List[dict]):
+    """Get summary statistics for headline generation"""
+    try:
+        hive = HiveIntegration()
+        summary = hive.generate_headlines_summary(posts)
+        return {
+            "status": "success",
+            "summary": summary
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 async def health_check():
