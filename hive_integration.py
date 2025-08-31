@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import List, Dict, Optional
 from huggingface_hub import HfApi
 import tempfile
+import math
+import numpy as np
 
 class HiveIntegration:
     def __init__(self, hive_space_url: str = None, hf_token: str = None):
@@ -123,6 +125,21 @@ class HiveIntegration:
         else:
             return 'low'
     
+    def _clean_for_json(self, data):
+        """Clean data to ensure JSON compatibility"""
+        if isinstance(data, dict):
+            return {k: self._clean_for_json(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._clean_for_json(item) for item in data]
+        elif isinstance(data, float):
+            if math.isnan(data) or math.isinf(data):
+                return 0.0
+            return data
+        elif isinstance(data, (int, str, bool, type(None))):
+            return data
+        else:
+            return str(data)
+
     def send_to_hive(self, csv_path: str, hive_endpoint: str = None) -> str:
         """Send CSV data to Hive service for headline generation"""
         try:
@@ -132,16 +149,25 @@ class HiveIntegration:
             # Read CSV data
             df = pd.read_csv(csv_path)
             
+            # Clean the data to ensure JSON compatibility
+            df_clean = df.copy()
+            for col in df_clean.select_dtypes(include=[np.number]).columns:
+                df_clean[col] = df_clean[col].replace([np.inf, -np.inf], 0.0)
+                df_clean[col] = df_clean[col].fillna(0.0)
+            
             # Prepare data for Hive
             hive_data = {
-                'posts': df.to_dict('records'),
+                'posts': df_clean.to_dict('records'),
                 'metadata': {
-                    'total_posts': len(df),
-                    'sources': df['source'].unique().tolist(),
-                    'topics': df['topic_category'].unique().tolist(),
+                    'total_posts': len(df_clean),
+                    'sources': df_clean['source'].unique().tolist(),
+                    'topics': df_clean['topic_category'].unique().tolist(),
                     'timestamp': datetime.now().isoformat()
                 }
             }
+            
+            # Clean the entire data structure for JSON
+            hive_data = self._clean_for_json(hive_data)
             
             # Send to Hive endpoint
             endpoint = hive_endpoint or f"{self.hive_space_url}/api/predict"
@@ -177,6 +203,22 @@ class HiveIntegration:
                 filename = os.path.basename(csv_path)
             
             api = HfApi()
+            
+            # Try to create the repository if it doesn't exist
+            try:
+                api.create_repo(
+                    repo_id=repo_id,
+                    repo_type="dataset",
+                    token=self.hf_token,
+                    exist_ok=True,
+                    private=False
+                )
+                print(f"✅ Repository {repo_id} created/verified successfully")
+            except Exception as create_error:
+                print(f"⚠️ Repository creation warning: {create_error}")
+                # Continue anyway, the upload might still work
+            
+            # Upload the file
             api.upload_file(
                 path_or_fileobj=csv_path,
                 path_in_repo=filename,
