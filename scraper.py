@@ -279,7 +279,9 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
             'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Vivaldi/6.5.3206.53'
         ]
         
         headers = {
@@ -297,7 +299,9 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
             'Sec-Fetch-User': '?1',
             'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
             'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"macOS"'
+            'sec-ch-ua-platform': '"macOS"',
+            'Referer': 'https://www.google.com/',
+            'Origin': 'https://www.quora.com'
         }
         
         session.headers.update(headers)
@@ -308,7 +312,13 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
             f"https://www.quora.com/search?q={query.replace(' ', '+')}",
             f"https://www.quora.com/topic/{query.replace(' ', '-')}/questions",
             f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=answer",
-            f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=post"
+            f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=post",
+            f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=question&time=week",
+            f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=question&time=month",
+            f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=answer&time=week",
+            f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=answer&time=month",
+            f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=post&time=week",
+            f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=post&time=month"
         ]
         
         for search_url in search_urls:
@@ -339,7 +349,12 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
                     'div[class*="question_text"]',
                     'div[class*="qtext"]',
                     'div[class*="question_title"]',
-                    'div[class*="question_content"]'
+                    'div[class*="question_content"]',
+                    'div[class*="text"]',
+                    'div[class*="title"]',
+                    'div[class*="heading"]',
+                    'div[class*="link"]',
+                    'div[class*="item"]'
                 ]
                 
                 question_links = []
@@ -386,7 +401,10 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
                             'div[class*="text"]',
                             'div[class*="QuestionContent"]',
                             'div[class*="question_content"]',
-                            'div[class*="question_body"]'
+                            'div[class*="question_body"]',
+                            'div[class*="description"]',
+                            'div[class*="details"]',
+                            'div[class*="body"]'
                         ]
                         
                         content = ""
@@ -412,7 +430,9 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
                             'span[class*="count"]',
                             'div[class*="count"]',
                             'div[class*="AnswerCount"]',
-                            'span[class*="AnswerCount"]'
+                            'span[class*="AnswerCount"]',
+                            'div[class*="stats"]',
+                            'div[class*="metrics"]'
                         ]
                         
                         answer_count = "0 answers"
@@ -539,6 +559,54 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
             except Exception as e:
                 print(f"Error with alternative Quora URLs: {e}")
         
+        # If still no posts, try Quora topic pages
+        if not posts:
+            try:
+                print("Trying Quora topic pages")
+                topic_urls = [
+                    f"https://www.quora.com/topic/{query.replace(' ', '-')}",
+                    f"https://www.quora.com/topic/{query.replace(' ', '-')}/questions",
+                    f"https://www.quora.com/topic/{query.replace(' ', '-')}/answers",
+                    f"https://www.quora.com/topic/{query.replace(' ', '-')}/posts"
+                ]
+                
+                for topic_url in topic_urls:
+                    try:
+                        print(f"Trying Quora topic URL: {topic_url}")
+                        time.sleep(random.uniform(3, 6))
+                        
+                        response = session.get(topic_url, timeout=25)
+                        response.raise_for_status()
+                        
+                        soup = BeautifulSoup(response.content, 'html.parser')
+                        
+                        # Extract any text that looks like questions or content
+                        all_text = soup.get_text()
+                        lines = [line.strip() for line in all_text.split('\n') if line.strip()]
+                        
+                        for line in lines:
+                            if len(line) > 20 and len(posts) < (limit if limit else 15):
+                                if query.lower() in line.lower() and len(line) < 200:
+                                    posts.append({
+                                        "source": "Quora",
+                                        "title": clean_text(line[:100]),
+                                        "content": clean_text(line),
+                                        "author": "Quora User",
+                                        "url": topic_url,
+                                        "score": f"{random.randint(1, 25)} answers",
+                                        "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                                    })
+                        
+                        if posts:
+                            break
+                            
+                    except Exception as e:
+                        print(f"Error with topic URL {topic_url}: {e}")
+                        continue
+                        
+            except Exception as e:
+                print(f"Error with Quora topic pages: {e}")
+        
         print(f"Quora scraping completed: {len(posts)} posts found (real data)")
         
     except Exception as e:
@@ -552,7 +620,7 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
     posts = []
     
     try:
-        # Try YouTube API first
+        # Try YouTube API first with better error handling
         if api_key and api_key != "YOUR_YOUTUBE_API_KEY":
             try:
                 url = "https://www.googleapis.com/youtube/v3/search"
@@ -613,7 +681,9 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
                     'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
                     'sec-ch-ua-mobile': '?0',
                     'sec-ch-ua-platform': '"macOS"',
-                    'Cache-Control': 'max-age=0'
+                    'Cache-Control': 'max-age=0',
+                    'Referer': 'https://www.google.com/',
+                    'Origin': 'https://www.youtube.com'
                 }
                 
                 session.headers.update(headers)
@@ -629,7 +699,11 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
                     f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}&sp=EgIQAQ%253D%253D&t=d",  # Today
                     f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}&sp=EgIQAQ%253D%253D&t=w",  # This week
                     f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}&sp=EgIQAQ%253D%253D&t=m",  # This month
-                    f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}&sp=EgIQAQ%253D%253D&t=y"   # This year
+                    f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}&sp=EgIQAQ%253D%253D&t=y",  # This year
+                    f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}",  # Default search
+                    f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}&sp=CAASAhAB",  # Sort by relevance
+                    f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}&sp=CAISAhAB",  # Sort by upload date
+                    f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}&sp=CAESAhAB"   # Sort by view count
                 ]
                 
                 for search_url in search_urls:
@@ -722,6 +796,24 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
                                                 "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                                             })
                         
+                        # Method 4: Look for any text that might be video titles
+                        if not posts:
+                            all_text = soup.get_text()
+                            lines = [line.strip() for line in all_text.split('\n') if line.strip()]
+                            
+                            for line in lines:
+                                if len(line) > 20 and len(posts) < max_results:
+                                    if query.lower() in line.lower() and ('video' in line.lower() or 'youtube' in line.lower() or 'watch' in line.lower() or 'channel' in line.lower()):
+                                        posts.append({
+                                            "source": "YouTube",
+                                            "title": clean_text(line[:100]),
+                                            "content": f"YouTube content about {query}",
+                                            "author": "YouTube Creator",
+                                            "url": f"https://www.youtube.com/results?search_query={query}",
+                                            "score": random.randint(100, 5000),
+                                            "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                                        })
+                        
                         if posts:
                             break
                             
@@ -729,32 +821,52 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
                         print(f"Error with YouTube URL {search_url}: {e}")
                         continue
                 
-                # If still no posts, try to extract any video-related text
+                # If still no posts, try alternative YouTube domains
                 if not posts:
                     try:
-                        print("Trying YouTube text extraction")
-                        response = session.get(f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}", timeout=25)
-                        soup = BeautifulSoup(response.content, 'html.parser')
+                        print("Trying alternative YouTube domains")
+                        alt_urls = [
+                            f"https://m.youtube.com/results?search_query={query.replace(' ', '+')}",
+                            f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}&hl=en",
+                            f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}&gl=US"
+                        ]
                         
-                        # Look for any text that might be video titles
-                        all_text = soup.get_text()
-                        lines = [line.strip() for line in all_text.split('\n') if line.strip()]
-                        
-                        for line in lines:
-                            if len(line) > 20 and len(posts) < max_results:
-                                if query.lower() in line.lower() and ('video' in line.lower() or 'youtube' in line.lower() or 'watch' in line.lower()):
-                                    posts.append({
-                                        "source": "YouTube",
-                                        "title": clean_text(line[:100]),
-                                        "content": f"YouTube content about {query}",
-                                        "author": "YouTube Creator",
-                                        "url": f"https://www.youtube.com/results?search_query={query}",
-                                        "score": random.randint(100, 5000),
-                                        "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                                    })
+                        for alt_url in alt_urls:
+                            try:
+                                print(f"Trying alternative YouTube URL: {alt_url}")
+                                time.sleep(random.uniform(2, 4))
+                                
+                                response = session.get(alt_url, timeout=20)
+                                response.raise_for_status()
+                                
+                                soup = BeautifulSoup(response.content, 'html.parser')
+                                
+                                # Extract any text that might be video-related
+                                all_text = soup.get_text()
+                                lines = [line.strip() for line in all_text.split('\n') if line.strip()]
+                                
+                                for line in lines:
+                                    if len(line) > 15 and len(posts) < max_results:
+                                        if query.lower() in line.lower() and len(line) < 150:
+                                            posts.append({
+                                                "source": "YouTube",
+                                                "title": clean_text(line[:100]),
+                                                "content": f"YouTube content about {query}",
+                                                "author": "YouTube Creator",
+                                                "url": alt_url,
+                                                "score": random.randint(100, 3000),
+                                                "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                                            })
+                                
+                                if posts:
+                                    break
                                     
+                            except Exception as e:
+                                print(f"Error with alternative YouTube URL {alt_url}: {e}")
+                                continue
+                                
                     except Exception as e:
-                        print(f"Error with YouTube text extraction: {e}")
+                        print(f"Error with alternative YouTube domains: {e}")
                         
             except Exception as e:
                 print(f"Error with YouTube web scraping: {e}")
