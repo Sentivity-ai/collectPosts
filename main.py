@@ -232,17 +232,62 @@ async def upload_to_hf(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
+@app.get("/test-hf-token")
+async def test_hf_token():
+    """Test if Hugging Face token is working"""
+    try:
+        hf_token = os.getenv("HF_TOKEN")
+        if not hf_token:
+            return {
+                "status": "error",
+                "message": "No HF_TOKEN environment variable set"
+            }
+        
+        from huggingface_hub import HfApi
+        api = HfApi()
+        
+        # Try to get user info to test token
+        try:
+            user_info = api.whoami(token=hf_token)
+            return {
+                "status": "success",
+                "message": f"HF token is valid. User: {user_info.get('name', 'Unknown')}",
+                "user": user_info
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"HF token validation failed: {str(e)}"
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"HF token test failed: {str(e)}"
+        }
+
 @app.post("/hive/process")
 async def process_for_hive(request: HiveRequest):
     """Process posts for Hive headline generation workflow"""
     try:
+        print(f"Processing {len(request.posts)} posts for Hive...")
+        
+        # Check if HF token is available
+        hf_token = os.getenv("HF_TOKEN")
+        if not hf_token:
+            print("Warning: No HF_TOKEN environment variable set")
+        
         hive = HiveIntegration()
         
         # Generate Hive-ready CSV
+        print("Generating CSV...")
         csv_path = hive.create_headlines_csv(request.posts)
+        print(f"CSV generated: {csv_path}")
         
         # Generate summary for headline optimization
+        print("Generating summary...")
         summary = hive.generate_headlines_summary(request.posts)
+        print(f"Summary generated with {len(summary)} items")
         
         result = {
             "status": "success",
@@ -253,18 +298,34 @@ async def process_for_hive(request: HiveRequest):
         
         # Upload to Hugging Face if requested
         if request.upload_to_hf and request.hive_repo:
-            upload_result = hive.upload_to_hf_dataset(csv_path, request.hive_repo)
-            result["upload_result"] = upload_result
+            print(f"Uploading to HF repo: {request.hive_repo}")
+            try:
+                upload_result = hive.upload_to_hf_dataset(csv_path, request.hive_repo)
+                result["upload_result"] = upload_result
+                print(f"Upload result: {upload_result}")
+            except Exception as upload_error:
+                print(f"Upload error: {str(upload_error)}")
+                result["upload_result"] = f"Upload failed: {str(upload_error)}"
         
         # Send to Hive for headline generation if requested
         if request.generate_headlines:
-            hive_result = hive.send_to_hive(csv_path)
-            result["hive_result"] = hive_result
+            print("Sending to Hive service...")
+            try:
+                hive_result = hive.send_to_hive(csv_path)
+                result["hive_result"] = hive_result
+                print(f"Hive result: {hive_result}")
+            except Exception as hive_error:
+                print(f"Hive error: {str(hive_error)}")
+                result["hive_result"] = f"Hive processing failed: {str(hive_error)}"
         
+        print("Hive processing completed successfully")
         return result
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Hive processing error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Hive processing failed: {str(e)}")
 
 @app.post("/hive/csv")
 async def generate_hive_csv(posts: List[dict], filename: Optional[str] = None):

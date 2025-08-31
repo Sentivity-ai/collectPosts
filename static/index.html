@@ -500,6 +500,11 @@
                         })
                     });
 
+                    if (!hiveResponse.ok) {
+                        const errorData = await hiveResponse.json();
+                        throw new Error(`Hive API error: ${hiveResponse.status} - ${errorData.detail || 'Unknown error'}`);
+                    }
+
                     const hiveData = await hiveResponse.json();
                     displayHiveResults(hiveData);
                 } else {
@@ -525,9 +530,9 @@
             let html = `
                 <div class="result-item">
                     <h4>📊 Analysis Summary</h4>
-                    <p><strong>Query:</strong> ${data.query}</p>
-                    <p><strong>Total Posts:</strong> ${data.total_posts}</p>
-                    <p><strong>Hashtags Generated:</strong> ${data.hashtags_count}</p>
+                    <p><strong>Query:</strong> ${data.query || 'N/A'}</p>
+                    <p><strong>Total Posts:</strong> ${data.total_posts || 0}</p>
+                    <p><strong>Hashtags Generated:</strong> ${data.hashtags_count || 0}</p>
                 </div>
             `;
 
@@ -536,8 +541,12 @@
                 <div class="result-item">
                     <h4>📈 Source Breakdown</h4>
             `;
-            for (const [source, count] of Object.entries(data.source_breakdown)) {
-                html += `<p><strong>${source}:</strong> ${count} posts</p>`;
+            if (data.source_breakdown) {
+                for (const [source, count] of Object.entries(data.source_breakdown)) {
+                    html += `<p><strong>${source}:</strong> ${count} posts</p>`;
+                }
+            } else {
+                html += `<p>No source breakdown available</p>`;
             }
             html += `</div>`;
 
@@ -560,11 +569,17 @@
         function displayHiveResults(data) {
             const resultsDiv = document.getElementById('results');
             
+            // Check if data is valid
+            if (!data || data.status !== 'success') {
+                showError('Invalid response from Hive processing');
+                return;
+            }
+            
             let html = `
                 <div class="result-item">
                     <h4>🐝 Hive Processing Complete</h4>
-                    <p><strong>CSV Generated:</strong> ${data.csv_path}</p>
-                    <p><strong>Total Posts:</strong> ${data.total_posts}</p>
+                    <p><strong>CSV Generated:</strong> ${data.csv_path || 'N/A'}</p>
+                    <p><strong>Total Posts:</strong> ${data.total_posts || 0}</p>
                 </div>
             `;
 
@@ -594,7 +609,7 @@
                         <div class="summary-grid">
                             <div class="summary-card">
                                 <h5>Total Posts</h5>
-                                <div class="value">${data.summary.total_posts}</div>
+                                <div class="value">${data.summary.total_posts || 0}</div>
                             </div>
                             <div class="summary-card">
                                 <h5>Avg Engagement</h5>
