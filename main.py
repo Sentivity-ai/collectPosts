@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Query, Body
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from typing import List, Dict, Optional
 import pandas as pd
 import os
@@ -38,6 +39,18 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+class ScrapeRequest(BaseModel):
+    sources: List[str]
+    query: str
+    days: int = 7
+    limit_per_source: int = 10
+
+class HiveRequest(BaseModel):
+    posts: List[dict]
+    hive_repo: str
+    generate_headlines: bool = True
+    upload_to_hf: bool = True
 
 @app.get("/")
 async def root():
@@ -140,26 +153,21 @@ async def enhanced_hashtags_endpoint(
         raise HTTPException(status_code=500, detail=f"Enhanced hashtag generation failed: {str(e)}")
 
 @app.post("/scrape-multi-source")
-async def scrape_multiple_sources(
-    sources: List[str] = Body(..., description="List of sources to scrape: reddit, quora, instagram, youtube"),
-    query: str = Body(..., description="Search query for all sources"),
-    days: int = Body(30, description="Number of days to look back (for Reddit)"),
-    limit_per_source: int = Body(50, description="Maximum posts per source")
-):
+async def scrape_multiple_sources(request: ScrapeRequest):
     try:
         all_posts = []
         source_results = {}
         
-        for source in sources:
+        for source in request.sources:
             try:
                 if source.lower() == "reddit":
-                    posts = collect_reddit_posts(query, days, limit_per_source)
+                    posts = collect_reddit_posts(request.query, request.days, request.limit_per_source)
                 elif source.lower() == "quora":
-                    posts = collect_quora_posts(query, limit=limit_per_source)
+                    posts = collect_quora_posts(request.query, request.limit_per_source)
                 elif source.lower() == "instagram":
-                    posts = collect_instagram_posts(query, limit_per_source)
+                    posts = collect_instagram_posts(request.query, request.limit_per_source)
                 elif source.lower() == "youtube":
-                    posts = collect_youtube_video_titles(query, limit_per_source)
+                    posts = collect_youtube_video_titles(request.query, request.limit_per_source)
                 else:
                     continue
                 
@@ -184,7 +192,7 @@ async def scrape_multiple_sources(
         
         return {
             "status": "success",
-            "query": query,
+            "query": request.query,
             "total_posts": len(all_posts),
             "source_breakdown": source_breakdown,
             "hashtags": merged_hashtags,
