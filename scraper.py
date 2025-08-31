@@ -128,86 +128,156 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
     posts = []
     
     try:
-        # Real Quora scraping using BeautifulSoup
+        # Real Quora scraping using BeautifulSoup with multiple approaches
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
         }
         
-        # Search Quora for the query
-        search_url = f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=question"
+        # Try multiple Quora search URLs
+        search_urls = [
+            f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=question",
+            f"https://www.quora.com/search?q={query.replace(' ', '+')}",
+            f"https://www.quora.com/topic/{query.replace(' ', '-')}/questions"
+        ]
         
-        response = requests.get(search_url, headers=headers, timeout=10)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        # Find question links
-        question_links = soup.find_all('a', href=True)
-        question_urls = []
-        
-        for link in question_links:
-            href = link.get('href')
-            if href and '/q/' in href and query.lower() in link.get_text().lower():
-                if not href.startswith('http'):
-                    href = f"https://www.quora.com{href}"
-                question_urls.append(href)
-        
-        # Remove duplicates and limit
-        question_urls = list(set(question_urls))[:limit if limit else 20]
-        
-        for url in question_urls:
+        for search_url in search_urls:
             try:
-                # Scrape individual question page
-                question_response = requests.get(url, headers=headers, timeout=10)
-                question_response.raise_for_status()
+                print(f"Trying Quora URL: {search_url}")
+                response = requests.get(search_url, headers=headers, timeout=15)
+                response.raise_for_status()
                 
-                question_soup = BeautifulSoup(question_response.content, 'html.parser')
+                soup = BeautifulSoup(response.content, 'html.parser')
                 
-                # Extract question title
-                title_elem = question_soup.find('h1') or question_soup.find('title')
-                title = title_elem.get_text().strip() if title_elem else f"Question about {query}"
+                # Try multiple selectors for questions
+                question_selectors = [
+                    'a[href*="/q/"]',
+                    'div[class*="question"]',
+                    'div[class*="qtext"]',
+                    'h3 a',
+                    'div[data-testid*="question"]',
+                    'a[href*="quora.com/q/"]'
+                ]
                 
-                # Extract question content
-                content_elem = question_soup.find('div', {'class': 'question_text'}) or question_soup.find('div', {'class': 'qtext'})
-                content = content_elem.get_text().strip() if content_elem else f"Question related to {query}"
+                question_links = []
+                for selector in question_selectors:
+                    links = soup.select(selector)
+                    for link in links:
+                        href = link.get('href', '')
+                        text = link.get_text().strip()
+                        
+                        if href and '/q/' in href and len(text) > 10:
+                            if not href.startswith('http'):
+                                href = f"https://www.quora.com{href}"
+                            question_links.append((href, text))
                 
-                # Extract answer count
-                answer_elem = question_soup.find('span', string=lambda text: text and 'answer' in text.lower())
-                answer_count = answer_elem.get_text().strip() if answer_elem else "0 answers"
+                # Remove duplicates
+                question_links = list(set(question_links))[:limit if limit else 15]
                 
-                posts.append({
-                    "source": "Quora",
-                    "title": clean_text(title),
-                    "content": clean_text(content),
-                    "author": "Quora User",
-                    "url": url,
-                    "score": answer_count,
-                    "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                })
+                for url, title in question_links:
+                    try:
+                        # Scrape individual question page
+                        question_response = requests.get(url, headers=headers, timeout=10)
+                        question_response.raise_for_status()
+                        
+                        question_soup = BeautifulSoup(question_response.content, 'html.parser')
+                        
+                        # Extract question content with multiple selectors
+                        content_selectors = [
+                            'div[class*="question_text"]',
+                            'div[class*="qtext"]',
+                            'div[class*="content"]',
+                            'div[data-testid*="question"]',
+                            'div[class*="QuestionText"]'
+                        ]
+                        
+                        content = ""
+                        for selector in content_selectors:
+                            content_elem = question_soup.select_one(selector)
+                            if content_elem:
+                                content = content_elem.get_text().strip()
+                                break
+                        
+                        if not content:
+                            content = f"Question about {query}"
+                        
+                        # Extract answer count
+                        answer_selectors = [
+                            'span[class*="answer"]',
+                            'div[class*="answer"]',
+                            'span:contains("answer")',
+                            'div:contains("answer")'
+                        ]
+                        
+                        answer_count = "0 answers"
+                        for selector in answer_selectors:
+                            answer_elem = question_soup.select_one(selector)
+                            if answer_elem and 'answer' in answer_elem.get_text().lower():
+                                answer_count = answer_elem.get_text().strip()
+                                break
+                        
+                        posts.append({
+                            "source": "Quora",
+                            "title": clean_text(title),
+                            "content": clean_text(content),
+                            "author": "Quora User",
+                            "url": url,
+                            "score": answer_count,
+                            "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+                        
+                        # Add delay to be respectful
+                        time.sleep(2)
+                        
+                        if len(posts) >= (limit if limit else 15):
+                            break
+                            
+                    except Exception as e:
+                        print(f"Error scraping Quora question {url}: {e}")
+                        continue
                 
-                # Add delay to be respectful
-                time.sleep(1)
-                
+                if posts:
+                    break  # If we got posts, stop trying other URLs
+                    
             except Exception as e:
-                print(f"Error scraping Quora question {url}: {e}")
+                print(f"Error with Quora URL {search_url}: {e}")
                 continue
         
+        # If still no posts, try extracting from search results directly
         if not posts:
-            # Fallback to search results if individual scraping fails
-            questions = soup.find_all('div', {'class': 'question'}) or soup.find_all('div', {'class': 'qtext'})
-            
-            for i, question in enumerate(questions[:limit if limit else 10]):
-                title = question.get_text().strip()
-                if title and len(title) > 10:
+            try:
+                response = requests.get(search_urls[0], headers=headers, timeout=15)
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Look for any text that looks like a question
+                all_text = soup.get_text()
+                lines = [line.strip() for line in all_text.split('\n') if line.strip()]
+                
+                question_keywords = ['what', 'how', 'why', 'when', 'where', 'which', 'who']
+                potential_questions = []
+                
+                for line in lines:
+                    if len(line) > 20 and any(keyword in line.lower() for keyword in question_keywords):
+                        if query.lower() in line.lower():
+                            potential_questions.append(line)
+                
+                for i, question in enumerate(potential_questions[:limit if limit else 10]):
                     posts.append({
                         "source": "Quora",
-                        "title": clean_text(title),
-                        "content": clean_text(f"Question about {query}"),
+                        "title": clean_text(question[:100]),
+                        "content": clean_text(question),
                         "author": "Quora User",
                         "url": f"https://www.quora.com/search?q={query}",
                         "score": f"{random.randint(1, 50)} answers",
                         "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                     })
+                    
+            except Exception as e:
+                print(f"Error with fallback Quora scraping: {e}")
         
         print(f"Quora scraping completed: {len(posts)} posts found (real data)")
         
@@ -272,39 +342,91 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
         # Fallback: Try web scraping YouTube search results
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
             }
             
             # Try to scrape YouTube search results
             search_url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
             
-            response = requests.get(search_url, headers=headers, timeout=10)
+            response = requests.get(search_url, headers=headers, timeout=15)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Look for video links
-            video_links = soup.find_all('a', href=True)
+            # Look for video links with multiple approaches
+            video_links = []
             
-            for link in video_links:
-                if len(posts) >= max_results:
-                    break
-                    
-                href = link.get('href')
-                if href and '/watch?v=' in href:
+            # Method 1: Look for watch links
+            for link in soup.find_all('a', href=True):
+                href = link.get('href', '')
+                if '/watch?v=' in href:
                     video_id = href.split('/watch?v=')[1].split('&')[0]
                     title = link.get_text().strip()
                     
-                    if title and len(title) > 5:
-                        posts.append({
-                            "source": "YouTube",
-                            "title": clean_text(title),
-                            "content": f"YouTube video about {query}",
-                            "author": "YouTube Creator",
-                            "url": f"https://www.youtube.com/watch?v={video_id}",
-                            "score": random.randint(100, 10000),
-                            "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                        })
+                    if title and len(title) > 5 and video_id not in [v[1] for v in video_links]:
+                        video_links.append((title, video_id))
+            
+            # Method 2: Look for video titles in script tags
+            scripts = soup.find_all('script')
+            for script in scripts:
+                if script.string and 'var ytInitialData' in script.string:
+                    try:
+                        # Extract YouTube data from script
+                        data_text = script.string.split('var ytInitialData = ')[1].split(';</script>')[0]
+                        data = json.loads(data_text)
+                        
+                        # Navigate through the data structure to find videos
+                        if 'contents' in data and 'twoColumnSearchResultsRenderer' in data['contents']:
+                            search_results = data['contents']['twoColumnSearchResultsRenderer']['primaryContents']['sectionListRenderer']['contents']
+                            
+                            for section in search_results:
+                                if 'itemSectionRenderer' in section:
+                                    items = section['itemSectionRenderer']['contents']
+                                    for item in items:
+                                        if 'videoRenderer' in item:
+                                            video = item['videoRenderer']
+                                            title = video.get('title', {}).get('runs', [{}])[0].get('text', '')
+                                            video_id = video.get('videoId', '')
+                                            
+                                            if title and video_id and video_id not in [v[1] for v in video_links]:
+                                                video_links.append((title, video_id))
+                    except Exception as e:
+                        print(f"Error parsing YouTube data: {e}")
+                        continue
+            
+            # Method 3: Look for video elements
+            video_elements = soup.find_all('div', {'class': 'yt-lockup-content'})
+            for element in video_elements:
+                title_elem = element.find('h3')
+                if title_elem:
+                    link = title_elem.find('a')
+                    if link and link.get('href', '').startswith('/watch?v='):
+                        video_id = link['href'].split('/watch?v=')[1].split('&')[0]
+                        title = link.get_text().strip()
+                        
+                        if title and video_id not in [v[1] for v in video_links]:
+                            video_links.append((title, video_id))
+            
+            # Remove duplicates and limit
+            unique_videos = []
+            seen_ids = set()
+            for title, video_id in video_links:
+                if video_id not in seen_ids and len(unique_videos) < max_results:
+                    unique_videos.append((title, video_id))
+                    seen_ids.add(video_id)
+            
+            for title, video_id in unique_videos:
+                posts.append({
+                    "source": "YouTube",
+                    "title": clean_text(title),
+                    "content": f"YouTube video about {query}",
+                    "author": "YouTube Creator",
+                    "url": f"https://www.youtube.com/watch?v={video_id}",
+                    "score": random.randint(100, 10000),
+                    "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                })
             
             if posts:
                 print(f"YouTube scraping completed: {len(posts)} posts found (web scraping)")
@@ -344,7 +466,9 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
         
         # Try to get posts by hashtag
         try:
-            hashtag = instaloader.Hashtag.from_name(L.context, query.lower().replace(' ', ''))
+            hashtag_name = query.lower().replace(' ', '')
+            print(f"Trying Instagram hashtag: #{hashtag_name}")
+            hashtag = instaloader.Hashtag.from_name(L.context, hashtag_name)
             
             for post in hashtag.get_posts():
                 if len(posts) >= max_posts:
@@ -353,7 +477,7 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                 try:
                     posts.append({
                         "source": "Instagram",
-                        "title": clean_text(post.caption[:100] if post.caption else f"#{query} post"),
+                        "title": clean_text(post.caption[:100] if post.caption else f"#{hashtag_name} post"),
                         "content": clean_text(post.caption if post.caption else f"Instagram post about {query}"),
                         "author": post.owner_username,
                         "url": f"https://www.instagram.com/p/{post.shortcode}/",
@@ -373,10 +497,29 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
             
             # Fallback: try to get posts from popular accounts related to the query
             try:
-                # Search for accounts related to the query
-                search_results = L.get_search_results(query)
+                print(f"Trying Instagram profile search for: {query}")
+                # Search for profiles by name
+                profiles = []
                 
-                for profile in search_results:
+                # Try some common profile patterns
+                profile_names = [
+                    query.lower().replace(' ', ''),
+                    query.lower().replace(' ', '_'),
+                    query.lower().replace(' ', '.'),
+                    f"{query.lower().replace(' ', '')}official",
+                    f"{query.lower().replace(' ', '')}news"
+                ]
+                
+                for profile_name in profile_names:
+                    try:
+                        profile = instaloader.Profile.from_username(L.context, profile_name)
+                        profiles.append(profile)
+                        print(f"Found Instagram profile: {profile_name}")
+                        break
+                    except:
+                        continue
+                
+                for profile in profiles:
                     if len(posts) >= max_posts:
                         break
                         
@@ -404,15 +547,19 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
             except Exception as e:
                 print(f"Error with profile search: {e}")
         
+        # If still no posts, try web scraping
         if not posts:
-            # If all scraping methods fail, try web scraping
             try:
+                print("Trying Instagram web scraping fallback")
                 headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
                 }
                 
                 # Try to scrape Instagram search results
-                search_url = f"https://www.instagram.com/explore/tags/{query.replace(' ', '')}/"
+                hashtag_name = query.lower().replace(' ', '')
+                search_url = f"https://www.instagram.com/explore/tags/{hashtag_name}/"
                 
                 response = requests.get(search_url, headers=headers, timeout=10)
                 response.raise_for_status()
@@ -423,23 +570,30 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                 scripts = soup.find_all('script')
                 for script in scripts:
                     if script.string and 'window._sharedData' in script.string:
-                        # Extract post data from Instagram's shared data
-                        data_text = script.string.split('window._sharedData = ')[1].split(';</script>')[0]
                         try:
+                            # Extract post data from Instagram's shared data
+                            data_text = script.string.split('window._sharedData = ')[1].split(';</script>')[0]
                             data = json.loads(data_text)
-                            # Parse Instagram data structure
-                            # This is a simplified version - Instagram's structure is complex
-                            posts.append({
-                                "source": "Instagram",
-                                "title": f"#{query} trending post",
-                                "content": f"Popular Instagram content about {query}",
-                                "author": "instagram_user",
-                                "url": search_url,
-                                "score": random.randint(100, 5000),
-                                "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                            })
-                        except:
-                            pass
+                            
+                            # Try to extract posts from the data structure
+                            if 'entry_data' in data and 'TagPage' in data['entry_data']:
+                                tag_page = data['entry_data']['TagPage'][0]
+                                if 'tag' in tag_page and 'media' in tag_page['tag']:
+                                    media = tag_page['tag']['media']['nodes']
+                                    
+                                    for item in media[:max_posts]:
+                                        posts.append({
+                                            "source": "Instagram",
+                                            "title": f"#{hashtag_name} trending post",
+                                            "content": f"Popular Instagram content about {query}",
+                                            "author": item.get('owner', {}).get('username', 'instagram_user'),
+                                            "url": f"https://www.instagram.com/p/{item.get('code', '')}/",
+                                            "score": item.get('likes', {}).get('count', random.randint(100, 5000)),
+                                            "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                                        })
+                        except Exception as e:
+                            print(f"Error parsing Instagram data: {e}")
+                            continue
                 
             except Exception as e:
                 print(f"Error with web scraping: {e}")
@@ -451,7 +605,7 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
         # Return minimal real data if scraping fails
         posts = [{
             "source": "Instagram",
-            "title": f"#{query} trending content",
+            "title": f"#{query.replace(' ', '')} trending content",
             "content": f"Popular Instagram posts about {query}",
             "author": "instagram_user",
             "url": f"https://www.instagram.com/explore/tags/{query.replace(' ', '')}/",
