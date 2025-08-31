@@ -136,18 +136,27 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15'
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
         ]
         
         headers = {
             'User-Agent': random.choice(user_agents),
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'Cache-Control': 'max-age=0',
-            'DNT': '1'
+            'DNT': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"macOS"'
         }
         
         session.headers.update(headers)
@@ -157,7 +166,8 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
             f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=question",
             f"https://www.quora.com/search?q={query.replace(' ', '+')}",
             f"https://www.quora.com/topic/{query.replace(' ', '-')}/questions",
-            f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=answer"
+            f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=answer",
+            f"https://www.quora.com/search?q={query.replace(' ', '+')}&type=post"
         ]
         
         for search_url in search_urls:
@@ -165,9 +175,9 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
                 print(f"Trying Quora URL: {search_url}")
                 
                 # Add random delay to avoid rate limiting
-                time.sleep(random.uniform(1, 3))
+                time.sleep(random.uniform(2, 5))
                 
-                response = session.get(search_url, timeout=20)
+                response = session.get(search_url, timeout=30)
                 response.raise_for_status()
                 
                 soup = BeautifulSoup(response.content, 'html.parser')
@@ -183,7 +193,12 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
                     'div[class*="QuestionText"]',
                     'span[class*="question"]',
                     'div[class*="content"] a',
-                    'a[href*="/q/"]'
+                    'a[href*="/q/"]',
+                    'div[class*="Question"]',
+                    'div[class*="question_text"]',
+                    'div[class*="qtext"]',
+                    'div[class*="question_title"]',
+                    'div[class*="question_content"]'
                 ]
                 
                 question_links = []
@@ -203,17 +218,17 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
                         continue
                 
                 # Remove duplicates and limit
-                question_links = list(set(question_links))[:limit if limit else 20]
+                question_links = list(set(question_links))[:limit if limit else 25]
                 
                 print(f"Found {len(question_links)} potential Quora questions")
                 
                 for url, title in question_links:
                     try:
                         # Add delay between requests
-                        time.sleep(random.uniform(2, 4))
+                        time.sleep(random.uniform(3, 6))
                         
                         # Scrape individual question page
-                        question_response = session.get(url, timeout=15)
+                        question_response = session.get(url, timeout=20)
                         question_response.raise_for_status()
                         
                         question_soup = BeautifulSoup(question_response.content, 'html.parser')
@@ -227,7 +242,10 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
                             'div[class*="QuestionText"]',
                             'div[class*="question"]',
                             'span[class*="question"]',
-                            'div[class*="text"]'
+                            'div[class*="text"]',
+                            'div[class*="QuestionContent"]',
+                            'div[class*="question_content"]',
+                            'div[class*="question_body"]'
                         ]
                         
                         content = ""
@@ -251,7 +269,9 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
                             'span:contains("answer")',
                             'div:contains("answer")',
                             'span[class*="count"]',
-                            'div[class*="count"]'
+                            'div[class*="count"]',
+                            'div[class*="AnswerCount"]',
+                            'span[class*="AnswerCount"]'
                         ]
                         
                         answer_count = "0 answers"
@@ -274,7 +294,7 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
                             "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                         })
                         
-                        if len(posts) >= (limit if limit else 15):
+                        if len(posts) >= (limit if limit else 20):
                             break
                             
                     except Exception as e:
@@ -293,7 +313,7 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
         if not posts:
             try:
                 print("Trying Quora fallback extraction")
-                response = session.get(search_urls[0], timeout=20)
+                response = session.get(search_urls[0], timeout=30)
                 soup = BeautifulSoup(response.content, 'html.parser')
                 
                 # Look for any text that looks like a question
@@ -308,7 +328,7 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
                         if query.lower() in line.lower():
                             potential_questions.append(line)
                 
-                for i, question in enumerate(potential_questions[:limit if limit else 10]):
+                for i, question in enumerate(potential_questions[:limit if limit else 15]):
                     posts.append({
                         "source": "Quora",
                         "title": clean_text(question[:100]),
@@ -322,63 +342,11 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
             except Exception as e:
                 print(f"Error with fallback Quora scraping: {e}")
         
-        # If still no posts, generate realistic fallback data
-        if not posts:
-            print("Generating realistic Quora fallback data")
-            realistic_questions = [
-                f"What are the most important {query} issues facing us today?",
-                f"How has {query} changed in the last decade?",
-                f"What should everyone know about {query}?",
-                f"Why is {query} so controversial?",
-                f"What are the biggest misconceptions about {query}?",
-                f"How does {query} affect everyday people?",
-                f"What are the key debates in {query}?",
-                f"How can we improve {query}?",
-                f"What role does {query} play in society?",
-                f"What are the future trends in {query}?",
-                f"What makes {query} so important?",
-                f"How do experts view {query}?",
-                f"What are the challenges in {query}?",
-                f"How does {query} impact the economy?",
-                f"What are the ethical considerations in {query}?"
-            ]
-            
-            for i, question in enumerate(realistic_questions[:limit if limit else 15]):
-                posts.append({
-                    "source": "Quora",
-                    "title": clean_text(question),
-                    "content": clean_text(f"Looking for insights and perspectives on {question.lower()}"),
-                    "author": f"QuoraUser{i+1}",
-                    "url": f"https://www.quora.com/search?q={query}",
-                    "score": f"{random.randint(5, 100)} answers",
-                    "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                })
-        
         print(f"Quora scraping completed: {len(posts)} posts found (real data)")
         
     except Exception as e:
         print(f"Quora scraping error: {e}")
-        # Generate realistic fallback data
-        print("Generating realistic Quora fallback data due to error")
-        realistic_questions = [
-            f"What are the most important {query} issues facing us today?",
-            f"How has {query} changed in the last decade?",
-            f"What should everyone know about {query}?",
-            f"Why is {query} so controversial?",
-            f"What are the biggest misconceptions about {query}?"
-        ]
-        
-        for i, question in enumerate(realistic_questions):
-            posts.append({
-                "source": "Quora",
-                "title": clean_text(question),
-                "content": clean_text(f"Looking for insights and perspectives on {question.lower()}"),
-                "author": f"QuoraUser{i+1}",
-                "url": f"https://www.quora.com/search?q={query}",
-                "score": f"{random.randint(5, 100)} answers",
-                "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            })
-        print(f"Quora scraping completed: {len(posts)} posts found (realistic fallback data)")
+        print(f"Quora scraping completed: {len(posts)} posts found (failed)")
     
     return posts
 
@@ -520,37 +488,7 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
                 
         except Exception as web_error:
             print(f"YouTube web scraping error: {web_error}")
-            # Generate realistic fallback data
-            print("Generating realistic YouTube fallback data")
-            realistic_videos = [
-                f"Breaking News: Latest {query} Developments You Need to Know",
-                f"Expert Analysis: Understanding the {query} Landscape",
-                f"Deep Dive: The Truth About {query} That Nobody Talks About",
-                f"Breaking Down {query}: What's Really Happening",
-                f"Insider Perspective: {query} from the Front Lines",
-                f"Data Analysis: The Numbers Behind {query}",
-                f"Interview: Expert Discusses {query} Trends",
-                f"Investigation: Uncovering the Real Story of {query}",
-                f"Analysis: How {query} Affects Everyone",
-                f"Report: The Latest on {query} Developments",
-                f"Discussion: Debating the Future of {query}",
-                f"Update: What's New in {query} This Week",
-                f"Perspective: Different Views on {query}",
-                f"Insights: What the Experts Say About {query}",
-                f"Coverage: Comprehensive Look at {query}"
-            ]
-            
-            for i, title in enumerate(realistic_videos[:max_results]):
-                posts.append({
-                    "source": "YouTube",
-                    "title": clean_text(title),
-                    "content": f"YouTube video about {query} - {title.lower()}",
-                    "author": f"YouTubeCreator{i+1}",
-                    "url": f"https://www.youtube.com/results?search_query={query}",
-                    "score": random.randint(100, 10000),
-                    "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                })
-            print(f"YouTube scraping completed: {len(posts)} posts found (realistic fallback data)")
+            print(f"YouTube scraping completed: {len(posts)} posts found (failed)")
     
     return posts
 
@@ -565,18 +503,27 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
         user_agents = [
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0'
         ]
         
         headers = {
             'User-Agent': random.choice(user_agents),
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'Cache-Control': 'max-age=0',
-            'DNT': '1'
+            'DNT': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"macOS"'
         }
         
         session.headers.update(headers)
@@ -591,7 +538,9 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                 download_comments=False,
                 save_metadata=False,
                 compress_json=False,
-                max_connection_attempts=3
+                max_connection_attempts=5,
+                request_timeout=30,
+                rate_controller=lambda ctx: time.sleep(random.uniform(3, 7))
             )
             
             # Try to get posts by hashtag
@@ -600,7 +549,7 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                 print(f"Trying Instagram hashtag: #{hashtag_name}")
                 
                 # Add delay before making request
-                time.sleep(random.uniform(2, 4))
+                time.sleep(random.uniform(3, 6))
                 
                 hashtag = instaloader.Hashtag.from_name(L.context, hashtag_name)
                 
@@ -620,7 +569,7 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                         })
                         
                         # Add delay to be respectful
-                        time.sleep(random.uniform(2, 4))
+                        time.sleep(random.uniform(3, 6))
                         
                     except Exception as e:
                         print(f"Error processing Instagram post: {e}")
@@ -641,13 +590,16 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                         f"{query.lower().replace(' ', '')}official",
                         f"{query.lower().replace(' ', '')}news",
                         f"{query.lower().replace(' ', '')}daily",
-                        f"{query.lower().replace(' ', '')}updates"
+                        f"{query.lower().replace(' ', '')}updates",
+                        f"{query.lower().replace(' ', '')}insider",
+                        f"{query.lower().replace(' ', '')}today",
+                        f"{query.lower().replace(' ', '')}now"
                     ]
                     
                     for profile_name in profile_names:
                         try:
                             print(f"Trying Instagram profile: {profile_name}")
-                            time.sleep(random.uniform(3, 5))
+                            time.sleep(random.uniform(4, 8))
                             
                             profile = instaloader.Profile.from_username(L.context, profile_name)
                             print(f"Found Instagram profile: {profile_name}")
@@ -666,7 +618,7 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                                     "created_utc": post.date.strftime("%Y-%m-%d %H:%M:%S")
                                 })
                                 
-                                time.sleep(random.uniform(1, 3))
+                                time.sleep(random.uniform(2, 4))
                             
                             if posts:
                                 break  # If we got posts, stop trying other profiles
@@ -687,9 +639,9 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                     search_url = f"https://www.instagram.com/explore/tags/{hashtag_name}/"
                     
                     # Add delay before web scraping
-                    time.sleep(random.uniform(2, 4))
+                    time.sleep(random.uniform(3, 6))
                     
-                    response = session.get(search_url, timeout=15)
+                    response = session.get(search_url, timeout=20)
                     response.raise_for_status()
                     
                     soup = BeautifulSoup(response.content, 'html.parser')
@@ -726,38 +678,6 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                 except Exception as e:
                     print(f"Error with web scraping: {e}")
             
-            # If still no posts, generate realistic fallback data
-            if not posts:
-                print("Generating realistic Instagram fallback data")
-                realistic_captions = [
-                    f"Exploring the latest trends in {query} 📊 #trending #insights",
-                    f"Breaking down the key issues in {query} today 🔍 #analysis #news",
-                    f"Your daily dose of {query} updates 📰 #daily #updates",
-                    f"Deep dive into {query} - what you need to know 💡 #education #knowledge",
-                    f"Hot takes on current {query} debates 🔥 #debate #discussion",
-                    f"Behind the scenes of {query} coverage 🎬 #behindthescenes #journalism",
-                    f"Expert analysis on {query} developments 👨‍💼 #expert #analysis",
-                    f"Community discussion on {query} topics 👥 #community #discussion",
-                    f"Visual breakdown of {query} data 📈 #data #visualization",
-                    f"Real talk about {query} issues 💬 #realtalk #issues",
-                    f"Breaking news in {query} 🚨 #breaking #news",
-                    f"Your questions about {query} answered ❓ #qanda #answers",
-                    f"Trending topics in {query} this week 📅 #trending #weekly",
-                    f"Insider perspective on {query} 🤫 #insider #perspective",
-                    f"Future outlook on {query} 🔮 #future #prediction"
-                ]
-                
-                for i, caption in enumerate(realistic_captions[:max_posts]):
-                    posts.append({
-                        "source": "Instagram",
-                        "title": clean_text(caption[:100]),
-                        "content": clean_text(caption),
-                        "author": f"politics_insider_{i+1}",
-                        "url": f"https://www.instagram.com/explore/tags/{query.replace(' ', '')}/",
-                        "score": random.randint(100, 5000),
-                        "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                    })
-            
             print(f"Instagram scraping completed: {len(posts)} posts found (real data)")
             
         except Exception as e:
@@ -768,47 +688,33 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                 hashtag_name = query.lower().replace(' ', '')
                 search_url = f"https://www.instagram.com/explore/tags/{hashtag_name}/"
                 
-                response = session.get(search_url, timeout=15)
+                response = session.get(search_url, timeout=20)
                 response.raise_for_status()
                 
-                # Create some mock posts based on the query
-                for i in range(min(5, max_posts)):
-                    posts.append({
-                        "source": "Instagram",
-                        "title": f"#{hashtag_name} trending content #{i+1}",
-                        "content": f"Popular Instagram posts about {query} - trending content",
-                        "author": f"instagram_user_{i+1}",
-                        "url": search_url,
-                        "score": random.randint(100, 2000),
-                        "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                    })
-                    
+                # Try to extract any post information from the page
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Look for any links that might be posts
+                post_links = soup.find_all('a', href=True)
+                for link in post_links:
+                    href = link.get('href', '')
+                    if '/p/' in href and len(posts) < max_posts:
+                        posts.append({
+                            "source": "Instagram",
+                            "title": f"#{hashtag_name} post",
+                            "content": f"Instagram post about {query}",
+                            "author": "instagram_user",
+                            "url": f"https://www.instagram.com{href}",
+                            "score": random.randint(100, 2000),
+                            "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+                        
             except Exception as web_error:
                 print(f"Error with web scraping fallback: {web_error}")
     
     except Exception as e:
         print(f"Instagram scraping error: {e}")
-        # Generate realistic fallback data
-        print("Generating realistic Instagram fallback data due to error")
-        realistic_captions = [
-            f"Exploring the latest trends in {query} 📊 #trending #insights",
-            f"Breaking down the key issues in {query} today 🔍 #analysis #news",
-            f"Your daily dose of {query} updates 📰 #daily #updates",
-            f"Deep dive into {query} - what you need to know 💡 #education #knowledge",
-            f"Hot takes on current {query} debates 🔥 #debate #discussion"
-        ]
-        
-        for i, caption in enumerate(realistic_captions):
-            posts.append({
-                "source": "Instagram",
-                "title": clean_text(caption[:100]),
-                "content": clean_text(caption),
-                "author": f"politics_insider_{i+1}",
-                "url": f"https://www.instagram.com/explore/tags/{query.replace(' ', '')}/",
-                "score": random.randint(100, 5000),
-                "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            })
-        print(f"Instagram scraping completed: {len(posts)} posts found (realistic fallback data)")
+        print(f"Instagram scraping completed: {len(posts)} posts found (failed)")
     
     return posts
 
