@@ -30,7 +30,7 @@ To fix the "undefined" values and 500 errors in your Hive integration, you need 
 | `REDDIT_CLIENT_SECRET` | `jW9w9dSkntRzjlo2_S_HKRxaiSFgVw` | Your Reddit API client secret |
 | `YOUTUBE_API_KEY` | `your_youtube_api_key` | Your YouTube Data API key |
 | `HF_TOKEN` | `your_huggingface_token_here` | Your Hugging Face access token |
-| `HIVE_SPACE_URL` | `https://huggingface.co/spaces/sentivity/topicfinder` | Your Hive service URL |
+| `HIVE_SPACE_URL` | `https://huggingface.co/spaces/sentivity/headline-generator` | Your Hive service URL (optional) |
 
 ### Step 3: Redeploy
 1. After adding all environment variables
@@ -89,6 +89,7 @@ Expected result:
    - **"HF token validation failed"**: Check if the token is valid
    - **"Repository Not Found"**: Repository will be auto-created now
    - **"JSON serialization error"**: Data is now cleaned automatically
+   - **"Hive API error: 404"**: Mock headlines will be generated automatically
 
 ### Environment Variable Format
 
@@ -96,8 +97,19 @@ Expected result:
 - Get from: https://huggingface.co/settings/tokens
 - Format: `hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
 
-**HIVE_SPACE_URL**: Your Hive service URL
+**HIVE_SPACE_URL**: Your Hive service URL (optional)
 - Format: `https://huggingface.co/spaces/username/service-name`
+- If not set or service unavailable, mock headlines will be generated
+
+## 🎯 Fallback Mechanism
+
+If the Hive service is not available (404 error), the application will automatically:
+1. **Generate mock headlines** based on your posts
+2. **Use engagement scores** to prioritize top content
+3. **Apply topic-specific formatting** (BREAKING for politics, 🚀 for tech, etc.)
+4. **Provide viral indicators** for high-engagement posts
+
+This ensures you always get headline suggestions, even without a custom Hive service.
 
 ## 📊 Expected Results After Fix
 
