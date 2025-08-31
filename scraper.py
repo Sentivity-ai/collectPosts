@@ -623,37 +623,57 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
         # Try YouTube API first with better error handling
         if api_key and api_key != "YOUR_YOUTUBE_API_KEY":
             try:
-                url = "https://www.googleapis.com/youtube/v3/search"
-                params = {
-                    "part": "snippet",
-                    "q": query,
-                    "type": "video",
-                    "maxResults": max_results,
-                    "key": api_key,
-                    "order": "relevance",
-                    "publishedAfter": (datetime.utcnow() - timedelta(days=30)).isoformat() + "Z"
-                }
+                # YouTube API has a max of 50 results per request, so we need to make multiple calls
+                max_per_request = min(50, max_results)
+                total_requests = (max_results + max_per_request - 1) // max_per_request
+                next_page_token = None
                 
-                res = requests.get(url, params=params, timeout=15)
-                data = res.json()
-                
-                if "error" in data:
-                    raise Exception(f"YouTube API error: {data['error'].get('message', 'Unknown error')}")
-                
-                for item in data.get("items", []):
-                    video_id = item["id"]["videoId"]
-                    title = item["snippet"]["title"]
-                    url = f"https://www.youtube.com/watch?v={video_id}"
+                for request_num in range(total_requests):
+                    if len(posts) >= max_results:
+                        break
+                        
+                    url = "https://www.googleapis.com/youtube/v3/search"
+                    params = {
+                        "part": "snippet",
+                        "q": query,
+                        "type": "video",
+                        "maxResults": min(max_per_request, max_results - len(posts)),
+                        "key": api_key,
+                        "order": "relevance",
+                        "publishedAfter": (datetime.utcnow() - timedelta(days=30)).isoformat() + "Z"
+                    }
                     
-                    posts.append({
-                        "source": "YouTube",
-                        "title": clean_text(title),
-                        "content": item["snippet"].get("description", ""),
-                        "author": item["snippet"]["channelTitle"],
-                        "url": url,
-                        "score": random.randint(100, 10000),
-                        "created_utc": item["snippet"]["publishedAt"]
-                    })
+                    if next_page_token:
+                        params["pageToken"] = next_page_token
+                    
+                    res = requests.get(url, params=params, timeout=15)
+                    data = res.json()
+                    
+                    if "error" in data:
+                        raise Exception(f"YouTube API error: {data['error'].get('message', 'Unknown error')}")
+                    
+                    for item in data.get("items", []):
+                        if len(posts) >= max_results:
+                            break
+                            
+                        video_id = item["id"]["videoId"]
+                        title = item["snippet"]["title"]
+                        url = f"https://www.youtube.com/watch?v={video_id}"
+                        
+                        posts.append({
+                            "source": "YouTube",
+                            "title": clean_text(title),
+                            "content": item["snippet"].get("description", ""),
+                            "author": item["snippet"]["channelTitle"],
+                            "url": url,
+                            "score": random.randint(100, 10000),
+                            "created_utc": item["snippet"]["publishedAt"]
+                        })
+                    
+                    # Get next page token for pagination
+                    next_page_token = data.get("nextPageToken")
+                    if not next_page_token:
+                        break
                     
             except Exception as e:
                 print(f"YouTube API error: {e}")
@@ -1043,12 +1063,25 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                             caption = post.caption if post.caption else ""
                             if not caption and hasattr(post, 'text') and post.text:
                                 caption = post.text
-                            if not caption:
-                                caption = f"Instagram post about {query}"
                             
-                            # Clean and truncate caption for title
-                            clean_caption = clean_text(caption)
-                            title = clean_caption[:100] if clean_caption else f"#{hashtag_name} post"
+                            # Filter out non-text content and ensure we have actual words
+                            if caption:
+                                # Remove URLs, emojis, and excessive whitespace
+                                import re
+                                # Remove URLs
+                                caption = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', caption)
+                                # Remove excessive whitespace
+                                caption = re.sub(r'\s+', ' ', caption).strip()
+                                # Only keep if we have meaningful text (more than 10 characters, not just hashtags)
+                                if len(caption) > 10 and not caption.startswith('#') and not caption.isupper():
+                                    clean_caption = clean_text(caption)
+                                    title = clean_caption[:100] if clean_caption else f"#{hashtag_name} post"
+                                else:
+                                    clean_caption = f"Instagram post about {query}"
+                                    title = f"#{hashtag_name} post"
+                            else:
+                                clean_caption = f"Instagram post about {query}"
+                                title = f"#{hashtag_name} post"
                             
                             posts.append({
                                 "source": "Instagram",
@@ -1104,12 +1137,25 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                                     caption = post.caption if post.caption else ""
                                     if not caption and hasattr(post, 'text') and post.text:
                                         caption = post.text
-                                    if not caption:
-                                        caption = f"Instagram post by {profile.username}"
                                     
-                                    # Clean and truncate caption for title
-                                    clean_caption = clean_text(caption)
-                                    title = clean_caption[:100] if clean_caption else f"Post by {profile.username}"
+                                    # Filter out non-text content and ensure we have actual words
+                                    if caption:
+                                        # Remove URLs, emojis, and excessive whitespace
+                                        import re
+                                        # Remove URLs
+                                        caption = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', caption)
+                                        # Remove excessive whitespace
+                                        caption = re.sub(r'\s+', ' ', caption).strip()
+                                        # Only keep if we have meaningful text (more than 10 characters, not just hashtags)
+                                        if len(caption) > 10 and not caption.startswith('#') and not caption.isupper():
+                                            clean_caption = clean_text(caption)
+                                            title = clean_caption[:100] if clean_caption else f"Post by {profile.username}"
+                                        else:
+                                            clean_caption = f"Instagram post by {profile.username}"
+                                            title = f"Post by {profile.username}"
+                                    else:
+                                        clean_caption = f"Instagram post by {profile.username}"
+                                        title = f"Post by {profile.username}"
                                     
                                     posts.append({
                                         "source": "Instagram",
