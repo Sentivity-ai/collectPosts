@@ -54,9 +54,21 @@ class HiveIntegration:
     
     def _calculate_engagement_score(self, post: Dict) -> float:
         """Calculate engagement score based on post metrics"""
-        score = post.get('score', 0)
-        comments = post.get('num_comments', 0)
-        upvotes = post.get('upvote_ratio', 0.5)
+        # Convert to numbers, handling string inputs
+        try:
+            score = float(post.get('score', 0))
+        except (ValueError, TypeError):
+            score = 0.0
+            
+        try:
+            comments = float(post.get('num_comments', 0))
+        except (ValueError, TypeError):
+            comments = 0.0
+            
+        try:
+            upvotes = float(post.get('upvote_ratio', 0.5))
+        except (ValueError, TypeError):
+            upvotes = 0.5
         
         # Weighted engagement score
         engagement = (score * 0.4) + (comments * 0.4) + (upvotes * 0.2)
