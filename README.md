@@ -1,76 +1,154 @@
 # Social Media Post Collector & Hashtag Generator
 
-A FastAPI web service that collects posts from Reddit, Quora, and YouTube, generates hashtags using TF-IDF and WordNet, and uploads data to Hugging Face Hub.
+A powerful FastAPI web application that scrapes social media posts from multiple platforms, generates viral hashtags, and integrates with Hive for headline generation.
 
-## Features
+## 🚀 Features
 
-- **Multi-platform scraping**: Reddit (via PRAW), Quora (via BeautifulSoup), YouTube (via API)
-- **Intelligent hashtag generation**: Uses TF-IDF and WordNet for relevant hashtags
-- **Hugging Face integration**: Upload collected data to HF Hub
-- **RESTful API**: Clean endpoints for all operations
-- **Easy deployment**: Ready for Render deployment
+### 📊 Multi-Platform Scraping
+- **Reddit**: Scrape posts from subreddits using PRAW
+- **Quora**: Extract questions and answers using BeautifulSoup
+- **Instagram**: Collect posts and hashtags using Instaloader
+- **YouTube**: Get video titles and descriptions via YouTube Data API
 
-## API Endpoints
+### 🏷️ Advanced Hashtag Generation
+- **TF-IDF Analysis**: Extract relevant keywords from post content
+- **WordNet Synonyms**: Expand hashtags with semantic variations
+- **Trending Detection**: Identify viral and trending topics
+- **Frequency Thresholding**: Filter out low-quality hashtags
 
-### 1. Scrape Posts
+### 🐝 Hive Integration (NEW!)
+- **Headline Generation**: Process posts for viral headline creation
+- **Engagement Scoring**: Calculate viral potential and engagement metrics
+- **Topic Categorization**: Auto-categorize content (politics, tech, entertainment, etc.)
+- **Sentiment Analysis**: Extract viral keywords and sentiment indicators
+- **CSV Export**: Generate optimized CSV files for Hive processing
+- **Hugging Face Upload**: Direct integration with your Hive service
+
+### 🌐 Modern Web Interface
+- **Responsive Design**: Works on desktop and mobile
+- **Real-time Analysis**: Instant results with loading indicators
+- **Multi-source Selection**: Choose which platforms to analyze
+- **Customizable Parameters**: Time range, post limits, and more
+
+## 🛠️ Tech Stack
+
+- **Backend**: FastAPI, Uvicorn
+- **Scraping**: PRAW (Reddit), BeautifulSoup (Quora), Instaloader (Instagram), YouTube API
+- **NLP**: scikit-learn (TF-IDF), NLTK (WordNet)
+- **Data Processing**: Pandas, NumPy
+- **Deployment**: Render, Docker-ready
+- **Frontend**: HTML5, CSS3, JavaScript (Vanilla)
+
+## 📦 Installation
+
+### Prerequisites
+- Python 3.11+
+- Git
+
+### Quick Start
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/collectPosts.git
+cd collectPosts
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set environment variables
+export REDDIT_CLIENT_ID="your_reddit_client_id"
+export REDDIT_CLIENT_SECRET="your_reddit_client_secret"
+export YOUTUBE_API_KEY="your_youtube_api_key"
+export HF_TOKEN="your_huggingface_token"
+
+# Run the application
+python main.py
 ```
-GET /scrape?source=reddit&query=politics&days=30&limit=100
+
+### Environment Variables
+```bash
+# Required for Reddit
+REDDIT_CLIENT_ID=your_reddit_client_id
+REDDIT_CLIENT_SECRET=your_reddit_client_secret
+
+# Required for YouTube
+YOUTUBE_API_KEY=your_youtube_api_key
+
+# Required for Hive integration
+HF_TOKEN=your_huggingface_token
+
+# Optional: Custom Hive service URL
+HIVE_SPACE_URL=https://huggingface.co/spaces/sentivity/topicfinder
 ```
 
-**Parameters:**
-- `source`: Platform to scrape (`reddit`, `quora`, `instagram`, `instagram_profile`, `youtube`)
-- `query`: Search query, subreddit name, hashtag, or Instagram username
-- `days`: Number of days to look back (Reddit only, default: 30)
-- `limit`: Maximum posts to collect (default: 100)
+## 🚀 Usage
 
-### 2. Enhanced Hashtag Generation
-```
-POST /enhanced-hashtags
-Content-Type: application/json
+### Web Interface
+1. Open your browser to `http://localhost:8000`
+2. Select sources (Reddit, Quora, Instagram, YouTube)
+3. Enter your query (subreddit, keyword, or hashtag)
+4. Set time range and post limits
+5. Click "Analyze" to generate hashtags
+6. Click "Process for Hive" 🐝 for headline generation
 
-{
-  "posts": [...],
-  "include_synonyms": true,
-  "include_trending": true,
-  "apply_thresholding": true,
-  "topic_keywords": ["python", "programming"],
-  "max_hashtags": 50
-}
-```
+### API Endpoints
 
-### 3. Multi-Source Scraping
-```
+#### Scrape Posts
+```bash
+# Single source
+GET /scrape?source=reddit&query=politics&days=7&limit=10
+
+# Multiple sources
 POST /scrape-multi-source
-Content-Type: application/json
-
 {
   "sources": ["reddit", "quora", "instagram"],
-  "query": "python",
-  "days": 30,
-  "limit_per_source": 50
+  "query": "politics",
+  "days": 7,
+  "limit_per_source": 10
 }
 ```
 
-### 4. Generate Hashtags
-```
+#### Generate Hashtags
+```bash
+# Basic hashtags
 POST /hashtags
-Content-Type: application/json
-
 {
-  "posts": [
-    {
-      "title": "Post title",
-      "content": "Post content"
-    }
-  ]
+  "posts": [...]
+}
+
+# Enhanced hashtags with synonyms
+POST /enhanced-hashtags
+{
+  "posts": [...]
 }
 ```
 
-### 5. Upload to Hugging Face
-```
-POST /upload
-Content-Type: application/json
+#### Hive Integration
+```bash
+# Generate Hive-ready CSV
+POST /hive/csv
+{
+  "posts": [...]
+}
 
+# Get headline generation summary
+POST /hive/summary
+{
+  "posts": [...]
+}
+
+# Full Hive processing
+POST /hive/process
+{
+  "posts": [...],
+  "hive_repo": "sentivity/collectPosts",
+  "generate_headlines": true,
+  "upload_to_hf": true
+}
+```
+
+#### Upload to Hugging Face
+```bash
+POST /upload
 {
   "posts": [...],
   "repo_id": "username/repo-name",
@@ -78,231 +156,155 @@ Content-Type: application/json
 }
 ```
 
-### 6. Health Check
-```
-GET /health
-```
+## 📊 CSV Output Structure
 
-## Local Development
+The Hive integration generates optimized CSV files with these columns:
 
-### Prerequisites
+| Column | Description | Example |
+|--------|-------------|---------|
+| `source` | Platform | "reddit", "quora", "instagram", "youtube" |
+| `title` | Post title | "Breaking: Major political scandal revealed" |
+| `content` | Post content | "A shocking new report has uncovered..." |
+| `author` | Post author | "user123" |
+| `score` | Platform score | 1500 |
+| `url` | Original URL | "https://reddit.com/r/politics/123" |
+| `timestamp` | Post timestamp | "2025-08-22T10:00:00Z" |
+| `engagement_score` | Calculated engagement | 700.19 |
+| `sentiment_keywords` | Viral keywords | "shocking, breaking, viral" |
+| `topic_category` | Auto-categorized | "politics", "technology", "entertainment" |
+| `viral_potential` | Viral rating | "high", "medium", "low" |
 
-- Python 3.8+
-- API keys for Reddit, YouTube, and Hugging Face
+## 🐝 Hive Integration Features
 
-### Setup
+### Engagement Scoring
+- **Weighted Formula**: `(score × 0.4) + (comments × 0.4) + (upvote_ratio × 0.2)`
+- **Viral Indicators**: Detects keywords like "breaking", "exclusive", "shocking"
+- **Topic Relevance**: Categorizes content for targeted headline generation
 
-1. **Clone the repository:**
-   ```bash
-   git clone <your-repo-url>
-   cd collectPosts
-   ```
+### Topic Categories
+- **Politics**: election, president, congress, democrat, republican
+- **Technology**: tech, AI, software, startup, artificial intelligence
+- **Entertainment**: movie, celebrity, music, concert, award
+- **Sports**: football, basketball, championship, team
+- **Business**: company, stock, market, economy, finance
+- **Health**: medical, doctor, hospital, disease, treatment
 
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Headline Generation Workflow
+1. **Data Collection**: Scrape posts from multiple sources
+2. **Processing**: Calculate engagement scores and categorize topics
+3. **CSV Generation**: Create optimized data structure
+4. **Hive Upload**: Send to your Hugging Face Hive service
+5. **Headline Creation**: Generate viral headlines based on analysis
 
-3. **Set environment variables:**
-   ```bash
-   export REDDIT_CLIENT_ID="your_reddit_client_id"
-   export REDDIT_CLIENT_SECRET="your_reddit_client_secret"
-   export YOUTUBE_API_KEY="your_youtube_api_key"
-   export INSTAGRAM_USERNAME="your_instagram_username"  # Optional
-   export INSTAGRAM_PASSWORD="your_instagram_password"  # Optional
-   export HF_TOKEN="your_huggingface_token"
-   ```
+## 🚀 Deployment
 
-4. **Run the application:**
-   ```bash
-   python main.py
-   ```
+### Render (Recommended)
+1. Fork this repository
+2. Connect to Render
+3. Set environment variables in Render dashboard
+4. Deploy automatically
 
-   Or with uvicorn:
-   ```bash
-   uvicorn main:app --reload --host 0.0.0.0 --port 8000
-   ```
-
-5. **Access the API:**
-   - API documentation: http://localhost:8000/docs
-   - Alternative docs: http://localhost:8000/redoc
-
-## Deployment on Render
-
-### Quick Deployment
-
-1. **Push your code to GitHub**
-2. **Go to [Render Dashboard](https://dashboard.render.com/)**
-3. **Click "New +" → "Web Service"**
-4. **Connect your GitHub repository**
-5. **Render will automatically detect the `render.yaml` configuration**
-6. **Set your environment variables in the Render dashboard:**
-   - `REDDIT_CLIENT_ID`
-   - `REDDIT_CLIENT_SECRET`
-   - `YOUTUBE_API_KEY`
-   - `HF_TOKEN`
-   - `INSTAGRAM_USERNAME` (optional)
-   - `INSTAGRAM_PASSWORD` (optional)
-
-### Environment Variables Setup
-
-In your Render dashboard, go to your service → Environment → Add Environment Variable:
-
-| Variable | Value |
-|----------|-------|
-| `REDDIT_CLIENT_ID` | Your Reddit client ID |
-| `REDDIT_CLIENT_SECRET` | Your Reddit client secret |
-| `YOUTUBE_API_KEY` | Your YouTube API key |
-| `HF_TOKEN` | Your Hugging Face token |
-| `INSTAGRAM_USERNAME` | Your Instagram username (optional) |
-| `INSTAGRAM_PASSWORD` | Your Instagram password (optional) |
-
-### Deployment Files
-
-The following files are configured for Render deployment:
-- `render.yaml` - Render service configuration
-- `runtime.txt` - Python version specification
-- `Procfile` - Alternative deployment configuration
-- `requirements.txt` - Python dependencies
-
-### After Deployment
-
-Once deployed, your service will be available at:
-`https://your-service-name.onrender.com`
-
-- **Web Interface:** `https://your-service-name.onrender.com/`
-- **API Documentation:** `https://your-service-name.onrender.com/docs`
-- **Health Check:** `https://your-service-name.onrender.com/health`
-
-## API Usage Examples
-
-### Scrape Reddit Posts
+### Manual Deployment
 ```bash
-curl "http://localhost:8000/scrape?source=reddit&query=politics&days=7&limit=50"
+# Build and run with Docker
+docker build -t social-media-collector .
+docker run -p 8000:8000 social-media-collector
+
+# Or deploy to any platform supporting Python
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
-### Scrape Quora Posts
-```bash
-curl "http://localhost:8000/scrape?source=quora&query=python%20programming&limit=20"
-```
-
-### Scrape Instagram Posts
-```bash
-curl "http://localhost:8000/scrape?source=instagram&query=python&limit=20"
-```
-
-### Generate Enhanced Hashtags
-```bash
-curl -X POST "http://localhost:8000/enhanced-hashtags" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "posts": [
-      {
-        "title": "Python Programming Tips",
-        "content": "Here are some useful tips for Python programming."
-      }
-    ],
-    "include_synonyms": true,
-    "include_trending": true,
-    "apply_thresholding": true,
-    "topic_keywords": ["python", "programming"],
-    "max_hashtags": 30
-  }'
-```
-
-### Multi-Source Scraping
-```bash
-curl -X POST "http://localhost:8000/scrape-multi-source" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sources": ["reddit", "quora", "instagram"],
-    "query": "python",
-    "days": 30,
-    "limit_per_source": 50
-  }'
-```
-
-### Generate Basic Hashtags
-```bash
-curl -X POST "http://localhost:8000/hashtags" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "posts": [
-      {
-        "title": "Breaking news about politics",
-        "content": "This is a detailed article about current political events."
-      }
-    ]
-  }'
-```
-
-### Upload to Hugging Face
-```bash
-curl -X POST "http://localhost:8000/upload" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "posts": [...],
-    "repo_id": "your-username/your-repo",
-    "filename": "politics_posts.csv"
-  }'
-```
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 collectPosts/
-├── main.py              # FastAPI application and routes
-├── scraper.py           # Scraping logic for Reddit, Quora, YouTube
-├── hashtag_utils.py     # TF-IDF and WordNet hashtag generation
-├── upload_utils.py      # Hugging Face upload functionality
-├── requirements.txt     # Python dependencies
-├── render.yaml          # Render deployment configuration
-└── README.md           # This file
+├── main.py                 # FastAPI application
+├── scraper.py             # Social media scraping logic
+├── hashtag_utils.py       # Hashtag generation algorithms
+├── upload_utils.py        # Hugging Face upload utilities
+├── hive_integration.py    # Hive integration for headlines
+├── static/
+│   └── index.html         # Web interface
+├── requirements.txt       # Python dependencies
+├── render.yaml           # Render deployment config
+├── Procfile              # Process file for deployment
+├── runtime.txt           # Python version specification
+├── test_api.py           # API testing script
+├── test_hive.py          # Hive integration tests
+├── HIVE_INTEGRATION.md   # Detailed Hive documentation
+└── DEPLOYMENT.md         # Deployment guide
 ```
 
-## Environment Variables
+## 🧪 Testing
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `REDDIT_CLIENT_ID` | Reddit API client ID | Yes |
-| `REDDIT_CLIENT_SECRET` | Reddit API client secret | Yes |
-| `YOUTUBE_API_KEY` | YouTube Data API key | Yes |
-| `INSTAGRAM_USERNAME` | Instagram username | Optional (for better scraping) |
-| `INSTAGRAM_PASSWORD` | Instagram password | Optional (for better scraping) |
-| `HF_TOKEN` | Hugging Face access token | For uploads |
+### API Testing
+```bash
+# Test all endpoints
+python test_api.py
 
-## Getting API Keys
+# Test Hive integration
+python test_hive.py
+```
 
-### Reddit API
+### Manual Testing
+```bash
+# Start the server
+python main.py
+
+# Test endpoints
+curl http://localhost:8000/health
+curl http://localhost:8000/scrape?source=reddit&query=python&days=7&limit=5
+```
+
+## 🔧 Configuration
+
+### Reddit API Setup
 1. Go to https://www.reddit.com/prefs/apps
 2. Create a new app (script type)
-3. Copy the client ID and secret
+3. Get client ID and secret
+4. Set environment variables
 
-### YouTube API
-1. Go to https://console.cloud.google.com/
-2. Create a project and enable YouTube Data API v3
-3. Create credentials (API key)
+### YouTube API Setup
+1. Go to Google Cloud Console
+2. Enable YouTube Data API v3
+3. Create API key
+4. Set environment variable
 
-### Hugging Face Token
+### Hugging Face Setup
 1. Go to https://huggingface.co/settings/tokens
-2. Create a new token with write permissions
+2. Create access token
+3. Set HF_TOKEN environment variable
 
-## Error Handling
-
-The API includes comprehensive error handling:
-- Invalid source platforms return 400 errors
-- Missing API keys return appropriate error messages
-- Network timeouts and API failures are handled gracefully
-- All endpoints return structured JSON responses
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
+4. Add tests
 5. Submit a pull request
 
-## License
+## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+- **Issues**: Create an issue on GitHub
+- **Documentation**: See `HIVE_INTEGRATION.md` for detailed Hive integration guide
+- **Deployment**: See `DEPLOYMENT.md` for deployment instructions
+
+## 🎯 Roadmap
+
+- [ ] Real-time streaming updates
+- [ ] Advanced sentiment analysis
+- [ ] Machine learning-based hashtag optimization
+- [ ] Social media scheduling integration
+- [ ] Analytics dashboard
+- [ ] Multi-language support
+
+---
+
+**Ready to collect posts and generate viral headlines?** 🚀
+
+Your Social Media Post Collector is now fully integrated with Hive for powerful headline generation. Start scraping, analyzing, and creating viral content today!
