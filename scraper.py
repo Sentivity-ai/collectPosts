@@ -945,10 +945,19 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                                 media = tag_page['tag']['media']['nodes']
                                 
                                 for item in media[:max_posts]:
+                                    # Extract caption from media item
+                                    caption = item.get('caption', '')
+                                    if not caption:
+                                        caption = f"Popular Instagram content about {query}"
+                                    
+                                    # Clean and truncate caption
+                                    clean_caption = clean_text(caption)
+                                    title = clean_caption[:100] if clean_caption else f"#{hashtag_name} trending post"
+                                    
                                     posts.append({
                                         "source": "Instagram",
-                                        "title": f"#{hashtag_name} trending post",
-                                        "content": f"Popular Instagram content about {query}",
+                                        "title": title,
+                                        "content": clean_caption,
                                         "author": item.get('owner', {}).get('username', 'instagram_user'),
                                         "url": f"https://www.instagram.com/p/{item.get('code', '')}/",
                                         "score": item.get('likes', {}).get('count', random.randint(100, 5000)),
@@ -1030,10 +1039,21 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                             break
                             
                         try:
+                            # Extract caption with better fallback
+                            caption = post.caption if post.caption else ""
+                            if not caption and hasattr(post, 'text') and post.text:
+                                caption = post.text
+                            if not caption:
+                                caption = f"Instagram post about {query}"
+                            
+                            # Clean and truncate caption for title
+                            clean_caption = clean_text(caption)
+                            title = clean_caption[:100] if clean_caption else f"#{hashtag_name} post"
+                            
                             posts.append({
                                 "source": "Instagram",
-                                "title": clean_text(post.caption[:100] if post.caption else f"#{hashtag_name} post"),
-                                "content": clean_text(post.caption if post.caption else f"Instagram post about {query}"),
+                                "title": title,
+                                "content": clean_caption,
                                 "author": post.owner_username,
                                 "url": f"https://www.instagram.com/p/{post.shortcode}/",
                                 "score": post.likes,
@@ -1080,10 +1100,21 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
                                     if len(posts) >= max_posts:
                                         break
                                         
+                                    # Extract caption with better fallback for profile posts
+                                    caption = post.caption if post.caption else ""
+                                    if not caption and hasattr(post, 'text') and post.text:
+                                        caption = post.text
+                                    if not caption:
+                                        caption = f"Instagram post by {profile.username}"
+                                    
+                                    # Clean and truncate caption for title
+                                    clean_caption = clean_text(caption)
+                                    title = clean_caption[:100] if clean_caption else f"Post by {profile.username}"
+                                    
                                     posts.append({
                                         "source": "Instagram",
-                                        "title": clean_text(post.caption[:100] if post.caption else f"Post by {profile.username}"),
-                                        "content": clean_text(post.caption if post.caption else f"Instagram post by {profile.username}"),
+                                        "title": title,
+                                        "content": clean_caption,
                                         "author": profile.username,
                                         "url": f"https://www.instagram.com/p/{post.shortcode}/",
                                         "score": post.likes,
