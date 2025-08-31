@@ -616,7 +616,7 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
     return posts
 
 def collect_youtube_video_titles(query: str = "politics", max_results: int = 10) -> List[Dict]:
-    api_key = os.getenv("YOUTUBE_API_KEY", "YOUR_YOUTUBE_API_KEY")
+    api_key = os.getenv("YOUTUBE_API_KEY", "AIzaSyAZwLva1HxzDbKFJuE9RVcxS5B4q_ol8yE")
     posts = []
     
     try:
