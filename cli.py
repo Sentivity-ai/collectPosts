@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-Command Line Interface for CollectPosts API
-Simple one-line commands to use your deployed service
-"""
-
 import argparse
 import sys
 import json
@@ -15,19 +9,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Scrape posts
   python cli.py scrape "politics" --limit 100
-  
-  # Generate hashtags
   python cli.py hashtags --posts-file posts.json --max 20
-  
-  # Process for Hive
   python cli.py hive --posts-file posts.json
-  
-  # Upload to Hugging Face
   python cli.py upload --posts-file posts.json --repo "username/repo"
-  
-  # Health check
   python cli.py health
         """
     )
@@ -37,7 +22,6 @@ Examples:
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
-    # Scrape command
     scrape_parser = subparsers.add_parser('scrape', help='Scrape social media posts')
     scrape_parser.add_argument('query', help='Search query (e.g., "politics", "tech")')
     scrape_parser.add_argument('--sources', nargs='+', 
@@ -50,7 +34,6 @@ Examples:
                               help='Lookback period in days')
     scrape_parser.add_argument('--output', help='Output file for results (JSON)')
     
-    # Hashtags command
     hashtags_parser = subparsers.add_parser('hashtags', help='Generate hashtags from posts')
     hashtags_parser.add_argument('--posts-file', required=True, 
                                 help='JSON file containing posts')
@@ -58,14 +41,12 @@ Examples:
                                 help='Maximum number of hashtags')
     hashtags_parser.add_argument('--output', help='Output file for hashtags (JSON)')
     
-    # Hive command
     hive_parser = subparsers.add_parser('hive', help='Process posts for Hive')
     hive_parser.add_argument('--posts-file', required=True, 
                             help='JSON file containing posts')
     hive_parser.add_argument('--hive-url', help='Custom Hive service URL')
     hive_parser.add_argument('--output', help='Output file for results (JSON)')
     
-    # Upload command
     upload_parser = subparsers.add_parser('upload', help='Upload posts to Hugging Face')
     upload_parser.add_argument('--posts-file', required=True, 
                               help='JSON file containing posts')
@@ -74,7 +55,6 @@ Examples:
     upload_parser.add_argument('--hf-token', help='Hugging Face token')
     upload_parser.add_argument('--output', help='Output file for results (JSON)')
     
-    # Health command
     subparsers.add_parser('health', help='Check service health')
     
     args = parser.parse_args()
@@ -83,89 +63,88 @@ Examples:
         parser.print_help()
         sys.exit(1)
     
-    # Initialize API client
     api = CollectPostsAPI(args.url)
     
     try:
         if args.command == 'scrape':
-            print(f"🚀 Scraping '{args.query}' from {', '.join(args.sources)}...")
+            print(f"Scraping '{args.query}' from {', '.join(args.sources)}...")
             result = api.scrape(args.query, args.sources, args.limit, args.days)
             
             if "error" in result:
-                print(f"❌ Error: {result['error']}")
+                print(f"Error: {result['error']}")
                 sys.exit(1)
             
             posts = result.get('all_posts', [])
-            print(f"✅ Found {len(posts)} posts")
+            print(f"Found {len(posts)} posts")
             
             if args.output:
                 with open(args.output, 'w') as f:
                     json.dump(result, f, indent=2)
-                print(f"💾 Results saved to {args.output}")
+                print(f"Results saved to {args.output}")
             else:
                 print(json.dumps(result, indent=2))
         
         elif args.command == 'hashtags':
-            print(f"🏷️  Generating hashtags...")
+            print(f"Generating hashtags...")
             with open(args.posts_file, 'r') as f:
                 posts = json.load(f)
             
             hashtags = api.get_hashtags(posts, args.max)
-            print(f"✅ Generated {len(hashtags)} hashtags")
+            print(f"Generated {len(hashtags)} hashtags")
             
             if args.output:
                 with open(args.output, 'w') as f:
                     json.dump({"hashtags": hashtags}, f, indent=2)
-                print(f"💾 Hashtags saved to {args.output}")
+                print(f"Hashtags saved to {args.output}")
             else:
                 print(json.dumps({"hashtags": hashtags}, indent=2))
         
         elif args.command == 'hive':
-            print(f"🐝 Processing for Hive...")
+            print(f"Processing for Hive...")
             with open(args.posts_file, 'r') as f:
                 posts = json.load(f)
             
             result = api.process_for_hive(posts, args.hive_url)
-            print(f"✅ Hive processing completed")
+            print(f"Hive processing completed")
             
             if args.output:
                 with open(args.output, 'w') as f:
                     json.dump(result, f, indent=2)
-                print(f"💾 Results saved to {args.output}")
+                print(f"Results saved to {args.output}")
             else:
                 print(json.dumps(result, indent=2))
         
         elif args.command == 'upload':
-            print(f"📤 Uploading to Hugging Face...")
+            print(f"Uploading to Hugging Face...")
             with open(args.posts_file, 'r') as f:
                 posts = json.load(f)
             
             result = api.upload_to_hf(posts, args.repo, args.hf_token)
-            print(f"✅ Upload completed")
+            print(f"Upload completed")
             
             if args.output:
                 with open(args.output, 'w') as f:
                     json.dump(result, f, indent=2)
-                print(f"💾 Results saved to {args.output}")
+                print(f"Results saved to {args.output}")
             else:
                 print(json.dumps(result, indent=2))
         
         elif args.command == 'health':
-            print("🏥 Checking service health...")
+            print("Checking service health...")
             if api.health_check():
-                print("✅ Service is healthy and running")
+                print("Service is healthy and running")
             else:
-                print("❌ Service is down or unreachable")
+                print("Service is down or unreachable")
                 sys.exit(1)
     
     except FileNotFoundError as e:
-        print(f"❌ File not found: {e}")
+        print(f"File not found: {e}")
         sys.exit(1)
     except json.JSONDecodeError as e:
-        print(f"❌ Invalid JSON: {e}")
+        print(f"Invalid JSON: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        print(f"Unexpected error: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
