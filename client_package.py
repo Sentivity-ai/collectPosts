@@ -2,17 +2,34 @@ import requests
 import pandas as pd
 import os
 
-def scrape_posts(query, sources=None, limit=100, days=30, base_url=None):
-    """Scrape social media posts and return DataFrame"""
+def api(subreddit=None, query=None, limit=100, time_passed="week", sources=None, base_url=None):
+    """API function that returns data directly - works like api(subreddit="labubu", limit="100", time_passed="week")"""
+    
+    # Convert time_passed to days
+    time_mapping = {
+        "hour": 1,
+        "day": 1, 
+        "week": 7,
+        "month": 30,
+        "year": 365
+    }
+    days = time_mapping.get(time_passed, 7)
+    
+    # Use subreddit as query if provided, otherwise use query
+    search_query = subreddit if subreddit else query
+    if not search_query:
+        return pd.DataFrame(), "Error: Must provide either subreddit or query"
+    
+    # Default sources if not specified
     if sources is None:
         sources = ['reddit', 'youtube', 'instagram']
     
     base_url = base_url or os.getenv('COLLECTPOSTS_URL', 'https://collectposts.onrender.com')
     
     payload = {
-        "query": query,
+        "query": search_query,
         "sources": sources,
-        "limit": limit,
+        "limit": int(limit),
         "days": days
     }
     
@@ -32,24 +49,21 @@ def scrape_posts(query, sources=None, limit=100, days=30, base_url=None):
     except Exception as e:
         return pd.DataFrame(), f"Failed: {str(e)}"
 
-def save_to_csv(df, filename):
-    """Save DataFrame to CSV"""
-    df.to_csv(filename, index=False)
-    return f"Saved {len(df)} posts to {filename}"
-
 # Example usage
 if __name__ == "__main__":
-    # Scrape posts
-    df, status = scrape_posts("politics", limit=50)
+    # Your exact example
+    data, status = api(subreddit="labubu", limit="100", time_passed="week")
     
-    if not df.empty:
+    if not data.empty:
         print(f"Status: {status}")
-        print(f"Columns: {list(df.columns)}")
+        print(f"Data shape: {data.shape}")
+        print(f"Columns: {list(data.columns)}")
         print(f"Sample data:")
-        print(df.head())
+        print(data.head())
         
-        # Save to CSV
-        result = save_to_csv(df, "politics_posts.csv")
-        print(result)
+        # Data is now in the 'data' variable as a DataFrame
+        # You can do whatever you want with it
+        print(f"\nTotal posts: {len(data)}")
+        print(f"Sources: {data['source'].value_counts()}")
     else:
         print(f"Error: {status}")

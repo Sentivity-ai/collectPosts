@@ -1,6 +1,6 @@
 # CollectPosts Client Package
 
-Simple package to scrape social media posts and get CSV output.
+Simple package to scrape social media posts and get data directly.
 
 ## Installation
 
@@ -11,13 +11,14 @@ pip install requests pandas
 ## Usage
 
 ```python
-from client_package import scrape_posts, save_to_csv
+from client_package import api
 
-# Get posts
-df, status = scrape_posts("politics", limit=100)
+# Get posts directly into your script
+data, status = api(subreddit="labubu", limit="100", time_passed="week")
 
-# Save to CSV
-save_to_csv(df, "politics_posts.csv")
+# Data is now in the 'data' variable as a DataFrame
+print(f"Got {len(data)} posts")
+print(data.head())
 ```
 
 ## What You Get
@@ -33,32 +34,37 @@ save_to_csv(df, "politics_posts.csv")
 
 ## Examples
 
-**Basic scraping:**
+**Your exact example:**
 ```python
-df, status = scrape_posts("technology", limit=50)
-print(f"Got {len(df)} posts")
+data, status = api(subreddit="labubu", limit="100", time_passed="week")
+```
+
+**General topic search:**
+```python
+data, status = api(query="technology", limit=50)
 ```
 
 **Specific sources:**
 ```python
-df, status = scrape_posts("AI", sources=["reddit", "youtube"], limit=100)
+data, status = api(query="AI", sources=["reddit", "youtube"], limit=100)
 ```
 
-**Save to file:**
+**Time periods:**
 ```python
-save_to_csv(df, "ai_posts.csv")
+data, status = api(subreddit="politics", time_passed="month", limit=200)
 ```
 
-**Convert to DataFrame for analysis:**
+**Work with the data:**
 ```python
-import pandas as pd
-
 # Filter by source
-reddit_posts = df[df['source'] == 'reddit']
-youtube_posts = df[df['source'] == 'youtube']
+reddit_posts = data[data['source'] == 'reddit']
+youtube_posts = data[data['source'] == 'youtube']
 
 # Sort by score
-top_posts = df.sort_values('score', ascending=False).head(10)
+top_posts = data.sort_values('score', ascending=False).head(10)
+
+# Save to CSV if needed
+data.to_csv("my_posts.csv", index=False)
 ```
 
 ## Environment Variable (Optional)
@@ -69,11 +75,13 @@ export COLLECTPOSTS_URL="https://collectposts.onrender.com"
 
 ## Output Format
 
-Your CSV will look like:
-```csv
-title,content,author,score,url,timestamp,source
-"Political discussion","Full post content...",username,150,https://...,2025-01-30,reddit
-"Tech news video","Video description...",channel,2500,https://...,2025-01-30,youtube
+Your DataFrame will have these columns:
+```python
+# data.columns
+['title', 'content', 'author', 'score', 'url', 'timestamp', 'source']
+
+# Sample data
+print(data.head())
 ```
 
-That's it! Simple CSV output from social media scraping.
+That's it! Data drops directly into your script as a DataFrame.
