@@ -1301,3 +1301,57 @@ def collect_instagram_profile_posts(username: str, max_posts: int = 20) -> List[
         print(f"Instagram profile scraping error: {e}")
     
     return posts
+
+def scrape_posts(sources: List[str], query: str, time_passed: str = "week", limit: int = 100) -> List[Dict]:
+    """
+    Central scraping interface that collects posts from multiple sources.
+    
+    Args:
+        sources: List of sources to scrape from ['reddit', 'youtube', 'instagram']
+        query: Search query or subreddit name
+        time_passed: Time period ('hour', 'day', 'week', 'month', 'year')
+        limit: Maximum number of posts to collect per source
+    
+    Returns:
+        List of post dictionaries from all sources combined
+    """
+    all_posts = []
+    
+    # Convert time_passed to days
+    time_mapping = {
+        "hour": 1,
+        "day": 1, 
+        "week": 7,
+        "month": 30,
+        "year": 365
+    }
+    days = time_mapping.get(time_passed, 7)
+    
+    # Scrape from each requested source
+    for source in sources:
+        try:
+            if source.lower() == "reddit":
+                posts = collect_reddit_posts(query, days, limit)
+                all_posts.extend(posts)
+                print(f"Reddit scraping completed: {len(posts)} posts found (real data)")
+                
+            elif source.lower() == "youtube":
+                posts = collect_youtube_video_titles(query, limit)
+                all_posts.extend(posts)
+                print(f"YouTube scraping completed: {len(posts)} posts found (real data)")
+                
+            elif source.lower() == "instagram":
+                posts = collect_instagram_posts(query, limit)
+                all_posts.extend(posts)
+                print(f"Instagram scraping completed: {len(posts)} posts found (real data)")
+                
+            elif source.lower() == "quora":
+                posts = collect_quora_posts(query, days, limit)
+                all_posts.extend(posts)
+                print(f"Quora scraping completed: {len(posts)} posts found (real data)")
+                
+        except Exception as e:
+            print(f"Error scraping {source}: {e}")
+            continue
+    
+    return all_posts

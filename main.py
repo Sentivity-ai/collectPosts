@@ -9,13 +9,7 @@ import os
 from datetime import datetime
 import uvicorn
 
-from scraper import (
-    collect_reddit_posts, 
-    collect_quora_posts, 
-    collect_youtube_video_titles,
-    collect_instagram_posts,
-    collect_instagram_profile_posts
-)
+from scraper import scrape_posts
 from hashtag_utils import (
     generate_hashtags, 
     enhanced_generate_hashtags,
@@ -155,44 +149,32 @@ async def enhanced_hashtags_endpoint(
 @app.post("/scrape-multi-source")
 async def scrape_multiple_sources(request: ScrapeRequest):
     try:
-        all_posts = []
-        source_results = {}
+        # Convert days to time_passed string
+        time_mapping = {1: "day", 7: "week", 30: "month", 365: "year"}
+        time_passed = time_mapping.get(request.days, "week")
         
-        for source in request.sources:
-            try:
-                if source.lower() == "reddit":
-                    posts = collect_reddit_posts(request.query, request.days, request.limit_per_source)
-                elif source.lower() == "quora":
-                    posts = collect_quora_posts(request.query, request.limit_per_source)
-                elif source.lower() == "instagram":
-                    posts = collect_instagram_posts(request.query, request.limit_per_source)
-                elif source.lower() == "youtube":
-                    posts = collect_youtube_video_titles(request.query, request.limit_per_source)
-                else:
-                    continue
-                
-                source_results[source] = {
-                    "posts_count": len(posts),
-                    "posts": posts
-                }
-                all_posts.extend(posts)
-                
-            except Exception as e:
-                source_results[source] = {
-                    "error": str(e),
-                    "posts_count": 0,
-                    "posts": []
-                }
+        # Use centralized scraping function
+        all_posts = scrape_posts(
+            sources=request.sources,
+            query=request.query,
+            time_passed=time_passed,
+            limit=request.limit_per_source
+        )
         
+        # Generate hashtags
         merged_hashtags = enhanced_generate_hashtags(all_posts) if all_posts else []
         
+        # Count posts by source
         source_breakdown = {}
-        for source, result in source_results.items():
-            source_breakdown[source] = result.get("posts_count", 0)
+        for post in all_posts:
+            source = post.get("source", "unknown")
+            source_breakdown[source] = source_breakdown.get(source, 0) + 1
         
         return {
             "status": "success",
             "query": request.query,
+            "sources": request.sources,
+            "days": request.days,
             "total_posts": len(all_posts),
             "source_breakdown": source_breakdown,
             "hashtags": merged_hashtags,
