@@ -84,4 +84,4 @@ Your DataFrame will have these columns:
 print(data.head())
 ```
 
-That's it! Data drops directly into your script as a DataFrame.
+Finito! Data drops directly into your script as a DataFrame.

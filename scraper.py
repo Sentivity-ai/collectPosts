@@ -9,6 +9,7 @@ import instaloader
 import time
 import random
 import json
+from youtube_transcript_api import YouTubeTranscriptApi
 
 reddit = praw.Reddit(
     client_id=os.getenv("REDDIT_CLIENT_ID", "F9rgR81aVwJSjyB0cfqzLQ"),
@@ -18,6 +19,28 @@ reddit = praw.Reddit(
 
 def clean_text(text: str) -> str:
     return text.replace("\n", " ").strip() if isinstance(text, str) else ""
+
+def extract_video_transcript(video_id: str) -> str:
+    """Extract transcript from YouTube video using YouTube Transcript API"""
+    try:
+        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        # Combine all transcript text
+        full_text = " ".join([entry['text'] for entry in transcript])
+        return clean_text(full_text)
+    except Exception as e:
+        print(f"Transcript extraction failed for {video_id}: {e}")
+        return ""
+
+def extract_video_id_from_url(url: str) -> str:
+    """Extract video ID from YouTube URL"""
+    try:
+        if "youtube.com/watch?v=" in url:
+            return url.split("v=")[1].split("&")[0]
+        elif "youtu.be/" in url:
+            return url.split("youtu.be/")[1].split("?")[0]
+        return ""
+    except:
+        return ""
 
 def collect_reddit_posts(subreddit_name: str = "politics", time_period_days: int = 30, limit: int = 100) -> List[Dict]:
     posts = []
@@ -537,7 +560,7 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
                         lines = [line.strip() for line in all_text.split('\n') if line.strip()]
                         
                         for line in lines:
-                            if len(line) > 25 and len(posts) < (limit if limit else 10):
+                            if len(line) > 25 and len(posts) < limit:
                                 if query.lower() in line.lower() and ('?' in line or 'what' in line.lower() or 'how' in line.lower()):
                                     posts.append({
                                         "source": "Quora",
@@ -585,7 +608,7 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
                         lines = [line.strip() for line in all_text.split('\n') if line.strip()]
                         
                         for line in lines:
-                            if len(line) > 20 and len(posts) < (limit if limit else 15):
+                            if len(line) > 20 and len(posts) < limit:
                                 if query.lower() in line.lower() and len(line) < 200:
                                     posts.append({
                                         "source": "Quora",
@@ -660,10 +683,14 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
                         title = item["snippet"]["title"]
                         url = f"https://www.youtube.com/watch?v={video_id}"
                         
+                        # Try to get transcript for better content
+                        transcript_content = extract_video_transcript(video_id)
+                        content = transcript_content if transcript_content else item["snippet"].get("description", "")
+                        
                         posts.append({
                             "source": "YouTube",
                             "title": clean_text(title),
-                            "content": item["snippet"].get("description", ""),
+                            "content": clean_text(content),
                             "author": item["snippet"]["channelTitle"],
                             "url": url,
                             "score": random.randint(100, 10000),
@@ -779,10 +806,14 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
                                                             video_id = video.get('videoId', '')
                                                             
                                                             if title and video_id:
+                                                                # Try to get transcript for better content
+                                                                transcript_content = extract_video_transcript(video_id)
+                                                                content = transcript_content if transcript_content else f"YouTube video about {query}"
+                                                                
                                                                 posts.append({
                                                                     "source": "YouTube",
                                                                     "title": clean_text(title),
-                                                                    "content": f"YouTube video about {query}",
+                                                                    "content": clean_text(content),
                                                                     "author": "YouTube Creator",
                                                                     "url": f"https://www.youtube.com/watch?v={video_id}",
                                                                     "score": random.randint(100, 10000),
@@ -806,10 +837,14 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
                                         title = link.get_text().strip()
                                         
                                         if title:
+                                            # Try to get transcript for better content
+                                            transcript_content = extract_video_transcript(video_id)
+                                            content = transcript_content if transcript_content else f"YouTube video about {query}"
+                                            
                                             posts.append({
                                                 "source": "YouTube",
                                                 "title": clean_text(title),
-                                                "content": f"YouTube video about {query}",
+                                                "content": clean_text(content),
                                                 "author": "YouTube Creator",
                                                 "url": f"https://www.youtube.com/watch?v={video_id}",
                                                 "score": random.randint(100, 10000),
