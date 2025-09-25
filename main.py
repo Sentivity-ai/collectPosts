@@ -24,7 +24,7 @@ class ScrapeRequest(BaseModel):
     sources: List[str]
     query: str
     days: int = 7
-    limit_per_source: int = 10
+    limit_per_source: int = 100
 
 @app.get("/")
 async def root():
