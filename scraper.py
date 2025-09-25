@@ -638,7 +638,7 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
     
     return posts
 
-def collect_youtube_video_titles(query: str = "politics", max_results: int = 10) -> List[Dict]:
+def collect_youtube_video_titles(query: str = "politics", max_results: int = 100) -> List[Dict]:
     api_key = os.getenv("YOUTUBE_API_KEY", "AIzaSyAZwLva1HxzDbKFJuE9RVcxS5B4q_ol8yE")
     posts = []
     
@@ -934,7 +934,7 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 10)
     
     return posts
 
-def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> List[Dict]:
+def collect_instagram_posts(query: str = "politics", max_posts: int = 100) -> List[Dict]:
     posts = []
     
     try:
@@ -1276,7 +1276,7 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 20) -> Lis
     
     return posts
 
-def collect_instagram_profile_posts(username: str, max_posts: int = 20) -> List[Dict]:
+def collect_instagram_profile_posts(username: str, max_posts: int = 100) -> List[Dict]:
     posts = []
     
     try:
