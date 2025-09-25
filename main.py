@@ -44,6 +44,9 @@ async def health_check():
 @app.post("/scrape-multi-source")
 async def scrape_multiple_sources(request: ScrapeRequest):
     try:
+        # Limit maximum posts to prevent timeouts
+        max_limit = min(request.limit_per_source, 500)
+        
         # Convert days to time_passed string
         time_mapping = {1: "day", 7: "week", 30: "month", 365: "year"}
         time_passed = time_mapping.get(request.days, "week")
@@ -53,7 +56,7 @@ async def scrape_multiple_sources(request: ScrapeRequest):
             sources=request.sources,
             query=request.query,
             time_passed=time_passed,
-            limit=request.limit_per_source
+            limit=max_limit
         )
         
         # Count posts by source

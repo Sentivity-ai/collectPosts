@@ -23,12 +23,13 @@ def clean_text(text: str) -> str:
 def extract_video_transcript(video_id: str) -> str:
     """Extract transcript from YouTube video using YouTube Transcript API"""
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        # Add timeout to prevent hanging
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
         # Combine all transcript text
         full_text = " ".join([entry['text'] for entry in transcript])
         return clean_text(full_text)
     except Exception as e:
-        print(f"Transcript extraction failed for {video_id}: {e}")
+        # Don't print errors for transcript failures to reduce noise
         return ""
 
 def extract_video_id_from_url(url: str) -> str:
@@ -669,7 +670,7 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
                     if next_page_token:
                         params["pageToken"] = next_page_token
                     
-                    res = requests.get(url, params=params, timeout=15)
+                    res = requests.get(url, params=params, timeout=10)
                     data = res.json()
                     
                     if "error" in data:
