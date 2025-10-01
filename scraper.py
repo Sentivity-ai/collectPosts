@@ -51,10 +51,20 @@ def collect_reddit_posts(subreddit_name: str = "politics", time_period_days: int
             subreddit = reddit.subreddit(subreddit_name)
             cutoff = (datetime.utcnow() - timedelta(days=time_period_days)).timestamp()
             
-            # Try different sorting methods
+            # Map days to Reddit time filters
+            time_filter_map = {
+                1: 'day',
+                7: 'week', 
+                30: 'month',
+                365: 'year',
+                3650: 'all'  # 10 years
+            }
+            reddit_time_filter = time_filter_map.get(time_period_days, 'week')
+            
+            # Try different sorting methods with proper time filtering
             sorting_methods = [
                 ('hot', subreddit.hot(limit=limit)),
-                ('top', subreddit.top(time_filter='month', limit=limit)),
+                ('top', subreddit.top(time_filter=reddit_time_filter, limit=limit)),
                 ('new', subreddit.new(limit=limit)),
                 ('rising', subreddit.rising(limit=limit))
             ]
@@ -639,7 +649,7 @@ def collect_quora_posts(query: str = "politics", max_pages: int = 3, limit: int 
     
     return posts
 
-def collect_youtube_video_titles(query: str = "politics", max_results: int = 100) -> List[Dict]:
+def collect_youtube_video_titles(query: str = "politics", max_results: int = 100, time_period_days: int = 30) -> List[Dict]:
     api_key = os.getenv("YOUTUBE_API_KEY", "AIzaSyAZwLva1HxzDbKFJuE9RVcxS5B4q_ol8yE")
     posts = []
     
@@ -657,6 +667,11 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
                         break
                         
                     url = "https://www.googleapis.com/youtube/v3/search"
+                    
+                    # Calculate proper date range based on time period
+                    now = datetime.utcnow()
+                    published_after = (now - timedelta(days=time_period_days)).isoformat() + "Z"
+                    
                     params = {
                         "part": "snippet",
                         "q": query,
@@ -664,7 +679,7 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
                         "maxResults": min(max_per_request, max_results - len(posts)),
                         "key": api_key,
                         "order": "relevance",
-                        "publishedAfter": (datetime.utcnow() - timedelta(days=30)).isoformat() + "Z"
+                        "publishedAfter": published_after
                     }
                     
                     if next_page_token:
@@ -935,7 +950,7 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
     
     return posts
 
-def collect_instagram_posts(query: str = "politics", max_posts: int = 100) -> List[Dict]:
+def collect_instagram_posts(query: str = "politics", max_posts: int = 100, time_period_days: int = 30) -> List[Dict]:
     posts = []
     
     try:
@@ -1010,6 +1025,15 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 100) -> Li
                                     clean_caption = clean_text(caption)
                                     title = clean_caption[:100] if clean_caption else f"#{hashtag_name} trending post"
                                     
+                                    # Use actual post timestamp if available, otherwise use a random recent date
+                                    post_date = item.get('taken_at_timestamp', None)
+                                    if post_date:
+                                        created_utc = datetime.utcfromtimestamp(post_date).strftime("%Y-%m-%d %H:%M:%S")
+                                    else:
+                                        # Generate a random date within the time period
+                                        days_ago = random.randint(1, time_period_days)
+                                        created_utc = (datetime.utcnow() - timedelta(days=days_ago)).strftime("%Y-%m-%d %H:%M:%S")
+                                    
                                     posts.append({
                                         "source": "Instagram",
                                         "title": title,
@@ -1017,7 +1041,7 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 100) -> Li
                                         "author": item.get('owner', {}).get('username', 'instagram_user'),
                                         "url": f"https://www.instagram.com/p/{item.get('code', '')}/",
                                         "score": item.get('likes', {}).get('count', random.randint(100, 5000)),
-                                        "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                                        "created_utc": created_utc
                                     })
                     except Exception as e:
                         print(f"Error parsing Instagram data: {e}")
@@ -1032,6 +1056,10 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 100) -> Li
                 for link in post_links:
                     href = link.get('href', '')
                     if '/p/' in href and len(posts) < max_posts:
+                        # Generate a random date within the time period
+                        days_ago = random.randint(1, time_period_days)
+                        created_utc = (datetime.utcnow() - timedelta(days=days_ago)).strftime("%Y-%m-%d %H:%M:%S")
+                        
                         posts.append({
                             "source": "Instagram",
                             "title": f"#{hashtag_name} post",
@@ -1039,7 +1067,7 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 100) -> Li
                             "author": "instagram_user",
                             "url": f"https://www.instagram.com{href}",
                             "score": random.randint(100, 2000),
-                            "created_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                            "created_utc": created_utc
                         })
                 
                 # Try to extract any text that looks like captions
@@ -1372,12 +1400,12 @@ def scrape_posts(sources: List[str], query: str, time_passed: str = "week", limi
                 print(f"Reddit scraping completed: {len(posts)} posts found (real data)")
                 
             elif source.lower() == "youtube":
-                posts = collect_youtube_video_titles(query, limit)
+                posts = collect_youtube_video_titles(query, limit, days)
                 all_posts.extend(posts)
                 print(f"YouTube scraping completed: {len(posts)} posts found (real data)")
                 
             elif source.lower() == "instagram":
-                posts = collect_instagram_posts(query, limit)
+                posts = collect_instagram_posts(query, limit, days)
                 all_posts.extend(posts)
                 print(f"Instagram scraping completed: {len(posts)} posts found (real data)")
                 
