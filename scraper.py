@@ -9,7 +9,7 @@ import instaloader
 import time
 import random
 import json
-from youtube_transcript_api import YouTubeTranscriptApi
+
 
 reddit = praw.Reddit(
     client_id=os.getenv("REDDIT_CLIENT_ID", "F9rgR81aVwJSjyB0cfqzLQ"),
@@ -700,8 +700,9 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
                         url = f"https://www.youtube.com/watch?v={video_id}"
                         
                         # Try to get transcript for better content
-                        transcript_content = extract_video_transcript(video_id)
-                        content = transcript_content if transcript_content else item["snippet"].get("description", "")
+                        content = ""
+                        # or: content = item["snippet"].get("description", "")
+
                         
                         posts.append({
                             "source": "YouTube",
@@ -823,8 +824,9 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
                                                             
                                                             if title and video_id:
                                                                 # Try to get transcript for better content
-                                                                transcript_content = extract_video_transcript(video_id)
-                                                                content = transcript_content if transcript_content else f"YouTube video about {query}"
+                                                                content = ""
+
+
                                                                 
                                                                 posts.append({
                                                                     "source": "YouTube",
@@ -854,8 +856,9 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
                                         
                                         if title:
                                             # Try to get transcript for better content
-                                            transcript_content = extract_video_transcript(video_id)
-                                            content = transcript_content if transcript_content else f"YouTube video about {query}"
+                                            content = ""
+
+
                                             
                                             posts.append({
                                                 "source": "YouTube",
