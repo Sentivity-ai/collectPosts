@@ -12,59 +12,69 @@ reddit = praw.Reddit(
 def clean_text(text: str) -> str:
     return text.replace("\n", " ").strip() if isinstance(text, str) else ""
 
-def collect_reddit_posts(subreddit_name: str = "politics", time_period_days: int = 30, limit: int = 100) -> List[Dict]:
-    posts = []
+def collect_reddit_posts(
+    subreddit_name: str = "politics",
+    time_period_days: int = 30,
+    limit: int = 100,
+    fetch_multiplier: int = 5,   # fetch extra to allow filtering
+) -> List[Dict]:
+
+    posts: List[Dict] = []
+    seen_ids = set()
+
+    cutoff_dt = datetime.utcnow() - timedelta(days=time_period_days)
+    cutoff_ts = cutoff_dt.timestamp()
+
     try:
-        # Try multiple Reddit API approaches
-        try:
-            subreddit = reddit.subreddit(subreddit_name)
-            cutoff = (datetime.utcnow() - timedelta(days=time_period_days)).timestamp()
-            
-            # Map days to Reddit time filters
-            time_filter_map = {
-                1: 'day',
-                7: 'week', 
-                30: 'month',
-                365: 'year',
-                3650: 'all'  # 10 years
-            }
-            reddit_time_filter = time_filter_map.get(time_period_days, 'week')
-            
-            # Try different sorting methods with proper time filtering
-            sorting_methods = [
-                ('hot', subreddit.hot(limit=limit)),
-                ('top', subreddit.top(time_filter=reddit_time_filter, limit=limit)),
-                ('new', subreddit.new(limit=limit)),
-                ('rising', subreddit.rising(limit=limit))
-            ]
-            
-            for sort_method, post_generator in sorting_methods:
-                try:
-                    for post in post_generator:
-                        if len(posts) >= limit:
-                            break
-                        
-                        # Check if post is within time period
-                        if hasattr(post, 'created_utc') and post.created_utc < cutoff:
-                            continue
-                            
-                        posts.append({
-                            "source": "Reddit",
-                            "title": clean_text(post.title),
-                            "content": clean_text(post.selftext),
-                            "author": str(post.author),
-                            "url": f"https://reddit.com{post.permalink}",
-                            "score": post.score,
-                            "created_utc": datetime.utcfromtimestamp(post.created_utc).strftime("%Y-%m-%d %H:%M:%S")
-                        })
-                except Exception as e:
-                    print(f"Error with {sort_method} sorting: {e}")
+        subreddit = reddit.subreddit(subreddit_name)
+
+        # 1) Chronological pass (preferred)
+        # Fetch more than `limit` so we can filter by time and still return up to `limit`.
+        fetch_limit = min(1000, max(limit * fetch_multiplier, limit))
+        for post in subreddit.new(limit=fetch_limit):
+            # `new()` is newest->oldest, so we can break once older than cutoff
+            if getattr(post, "created_utc", 0) < cutoff_ts:
+                break
+            if post.id in seen_ids:
+                continue
+            seen_ids.add(post.id)
+
+            posts.append({
+                "source": "Reddit",
+                "title": clean_text(getattr(post, "title", "")),
+                "content": clean_text(getattr(post, "selftext", "")),
+                "author": (post.author.name if getattr(post, "author", None) else "[deleted]"),
+                "url": f"https://reddit.com{getattr(post, 'permalink', '')}",
+                "score": getattr(post, "score", 0),
+                "created_utc": datetime.utcfromtimestamp(post.created_utc).strftime("%Y-%m-%d %H:%M:%S"),
+                "id": post.id,
+            })
+            if len(posts) >= limit:
+                break
+
+        # 2) Optional fallback if nothing found in the strict window
+        if not posts:
+            for post in subreddit.hot(limit=min(500, fetch_limit)):
+                if getattr(post, "created_utc", 0) < cutoff_ts:
                     continue
-                    
-        except Exception as e:
-            print(f"Reddit API error: {e}")
-            
+                if post.id in seen_ids:
+                    continue
+                seen_ids.add(post.id)
+                posts.append({
+                    "source": "Reddit",
+                    "title": clean_text(getattr(post, "title", "")),
+                    "content": clean_text(getattr(post, "selftext", "")),
+                    "author": (post.author.name if getattr(post, "author", None) else "[deleted]"),
+                    "url": f"https://reddit.com{getattr(post, 'permalink', '')}",
+                    "score": getattr(post, "score", 0),
+                    "created_utc": datetime.utcfromtimestamp(post.created_utc).strftime("%Y-%m-%d %H:%M:%S"),
+                    "id": post.id,
+                })
+                if len(posts) >= limit:
+                    break
+
     except Exception as e:
         print(f"Reddit scraping error: {e}")
-    
-    return posts
+
+    # Return up to `limit` (already time-filtered)
+    return posts[:limit]
