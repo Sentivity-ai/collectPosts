@@ -1,76 +1,64 @@
-# CollectPosts API
+# CollectPosts - Social Media Scraping API
 
-A simple social media scraping API that collects posts from Reddit, YouTube, and Instagram.
+A modular FastAPI service for collecting posts from Reddit, YouTube, Instagram, and Quora.
 
-## Quick Start
-
-### For Users (Client Package)
-
-```python
-from client_package import api
-
-# Get posts directly into your script
-data, status = api(subreddit="labubu", limit="100", time_passed="week")
-
-# Data is now in 'data' variable as DataFrame
-print(f"Got {len(data)} posts")
-print(data.head())
-```
-
-### Installation
-
-```bash
-pip install requests pandas
-```
-
-## API Usage
-
-```python
-# Your exact example
-data = api(subreddit="labubu", limit="100", time_passed="week")
-
-# General topic search
-data = api(query="technology", limit=50)
-
-# Specific sources only
-data = api(query="AI", sources=["reddit", "youtube"], limit=100)
-
-# Different time periods
-data = api(subreddit="politics", time_passed="month", limit=200)
-```
-
-## What You Get
-
-**DataFrame with columns:**
-- `title`: Post title/content
-- `content`: Full post text
-- `author`: Username/creator
-- `score`: Engagement metrics
-- `url`: Link to post
-- `timestamp`: When posted
-- `source`: reddit/youtube/instagram
-
-## Deployment
-
-The API is deployed on Render at: `https://collectposts.onrender.com`
-
-## Project Structure
+## 🏗️ Project Structure
 
 ```
 collectPosts/
-├── main.py              # FastAPI server
-├── scraper.py           # Core scraping logic
-├── client_package.py    # Client API
-├── requirements.txt     # Dependencies
-├── render.yaml         # Render deployment config
-└── CLIENT_README.md    # Client documentation
+├── main.py                 # Main entry point
+├── client.py              # Client access point
+├── scraper.py             # Main scraper coordinator
+├── scrapers/              # Platform-specific scrapers
+│   ├── __init__.py
+│   ├── reddit_scraper.py
+│   ├── youtube_scraper.py
+│   ├── instagram_scraper.py
+│   └── quora_scraper.py
+├── api/                   # API components
+│   ├── __init__.py
+│   ├── main.py           # FastAPI app
+│   └── client_package.py # API client
+├── docs/                  # Documentation
+│   ├── README.md
+│   └── CLIENT_README.md
+├── requirements.txt
+├── render.yaml
+├── Procfile
+└── runtime.txt
 ```
 
-## Sources
+## 🚀 Quick Start
 
-- ✅ **Reddit**: Working (PRAW API)
-- ✅ **YouTube**: Working (API + web scraping)
-- ✅ **Instagram**: Working (Instaloader + web scraping)
-- ❌ **Quora**: Disabled (anti-bot measures)
+### Running the API Server
+```bash
+python main.py
+```
 
-That's it! Simple social media scraping with one-line API calls.
+### Using the Client
+```python
+from client import api
+
+# Scrape posts
+data, status = api(subreddit='politics', limit=10, time_passed='week')
+print(data.head())
+```
+
+## 📊 Features
+
+- **Multi-platform scraping**: Reddit, YouTube, Instagram, Quora
+- **Time filtering**: day, week, month, year
+- **Modular architecture**: Easy to extend and maintain
+- **REST API**: Deploy on Render, Heroku, etc.
+- **Client package**: Simple Python interface
+
+## 🔧 Configuration
+
+Set environment variables:
+- `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`
+- `YOUTUBE_API_KEY`
+- `INSTAGRAM_USERNAME` / `INSTAGRAM_PASSWORD`
+
+## 📚 Documentation
+
+See `docs/` folder for detailed documentation.

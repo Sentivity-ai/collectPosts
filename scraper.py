@@ -1,8 +1,10 @@
 from typing import List, Dict
-from reddit_scraper import collect_reddit_posts
-from youtube_scraper import collect_youtube_video_titles
-from instagram_scraper import collect_instagram_posts
-from quora_scraper import collect_quora_posts
+from scrapers import (
+    collect_reddit_posts,
+    collect_youtube_video_titles,
+    collect_instagram_posts,
+    collect_quora_posts
+)
 
 def scrape_posts(sources: List[str], query: str, time_passed: str = "week", limit: int = 100) -> List[Dict]:
     """
