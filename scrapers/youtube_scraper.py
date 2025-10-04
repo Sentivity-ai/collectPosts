@@ -1,8 +1,10 @@
 import os
 import requests
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict
+
+ISO8601 = "%Y-%m-%dT%H:%M:%SZ"
 
 
 def clean_text(text: str) -> str:
@@ -26,31 +28,29 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
     posts = []
     
     try:
-        # Try YouTube API first with better error handling
         if api_key and api_key != "YOUR_YOUTUBE_API_KEY":
             try:
-                # Calculate how many API calls we need (max 50 per call)
                 max_per_request = 50
                 total_requests = (max_results + max_per_request - 1) // max_per_request
                 next_page_token = None
-                
+
+                # define UTC cutoff for filtering
+                cutoff_dt = datetime.now(timezone.utc) - timedelta(days=time_period_days)
+
                 for request_num in range(total_requests):
                     if len(posts) >= max_results:
                         break
                         
                     url = "https://www.googleapis.com/youtube/v3/search"
-                    
-                    # Calculate proper date range based on time period
-                    now = datetime.utcnow()
-                    published_after = (now - timedelta(days=time_period_days)).isoformat() + "Z"
-                    
+                    published_after = (datetime.now(timezone.utc) - timedelta(days=time_period_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
                     params = {
                         "part": "snippet",
                         "q": query,
                         "type": "video",
                         "maxResults": min(max_per_request, max_results - len(posts)),
                         "key": api_key,
-                        "order": "relevance",
+                        "order": "date",  # <-- changed from relevance to date
                         "publishedAfter": published_after
                     }
                     
@@ -70,12 +70,24 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
                         if len(posts) >= max_results:
                             break
                         
-                        video_id = item["id"]["videoId"]
+                        video_id = item["id"].get("videoId")
+                        if not video_id:
+                            continue
+                        
                         title = item["snippet"]["title"]
                         url = f"https://www.youtube.com/watch?v={video_id}"
-                        
-                        # Use YouTube description as content
                         content = item["snippet"].get("description", "")
+                        published_str = item["snippet"].get("publishedAt", "")
+                        
+                        # 🧩 pub_s section (cutoff filtering)
+                        try:
+                            pub_dt = datetime.strptime(published_str, ISO8601).replace(tzinfo=timezone.utc)
+                        except Exception:
+                            continue  # skip if invalid timestamp
+
+                        # skip posts older than cutoff_dt
+                        if pub_dt < cutoff_dt:
+                            continue
                         
                         posts.append({
                             "source": "YouTube",
@@ -84,16 +96,13 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
                             "author": item["snippet"]["channelTitle"],
                             "url": url,
                             "score": random.randint(100, 10000),
-                            "created_utc": item["snippet"]["publishedAt"]
+                            "created_utc": published_str
                         })
             except Exception as e:
                 print(f"YouTube API error: {e}")
         
-        # Fallback to web scraping if API fails
         if len(posts) == 0:
-            print("YouTube API key not valid. Trying web scraping...")
-            # Web scraping fallback code would go here
-            # For now, return empty list
+            print("YouTube API key not valid or no results found within time window.")
             
     except Exception as e:
         print(f"YouTube error: {e}")
