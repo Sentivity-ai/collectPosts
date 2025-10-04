@@ -9,7 +9,6 @@ import instaloader
 import time
 import random
 import json
-from youtube_transcript_api import YouTubeTranscriptApi
 
 
 reddit = praw.Reddit(
@@ -20,18 +19,6 @@ reddit = praw.Reddit(
 
 def clean_text(text: str) -> str:
     return text.replace("\n", " ").strip() if isinstance(text, str) else ""
-
-def extract_video_transcript(video_id: str) -> str:
-    """Extract transcript from YouTube video using YouTube Transcript API"""
-    try:
-        # Add timeout to prevent hanging
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
-        # Combine all transcript text
-        full_text = " ".join([entry['text'] for entry in transcript])
-        return clean_text(full_text)
-    except Exception as e:
-        # Don't print errors for transcript failures to reduce noise
-        return ""
 
 def extract_video_id_from_url(url: str) -> str:
     """Extract video ID from YouTube URL"""
@@ -700,9 +687,8 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
                         title = item["snippet"]["title"]
                         url = f"https://www.youtube.com/watch?v={video_id}"
                         
-                        # Try to get transcript for better content
-                        transcript_content = extract_video_transcript(video_id)
-                        content = transcript_content if transcript_content else item["snippet"].get("description", "")
+                        # Use YouTube description as content
+                        content = item["snippet"].get("description", "")
 
                         
                         posts.append({
@@ -824,9 +810,8 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
                                                             video_id = video.get('videoId', '')
                                                             
                                                             if title and video_id:
-                                                                # Try to get transcript for better content
-                                                                transcript_content = extract_video_transcript(video_id)
-                                                                content = transcript_content if transcript_content else f"YouTube video about {query}"
+                                                                # Use simple YouTube content
+                                                                content = f"YouTube video about {query}"
 
 
                                                                 
@@ -857,9 +842,8 @@ def collect_youtube_video_titles(query: str = "politics", max_results: int = 100
                                         title = link.get_text().strip()
                                         
                                         if title:
-                                            # Try to get transcript for better content
-                                            transcript_content = extract_video_transcript(video_id)
-                                            content = transcript_content if transcript_content else f"YouTube video about {query}"
+                                            # Use simple YouTube content
+                                            content = f"YouTube video about {query}"
 
 
                                             
