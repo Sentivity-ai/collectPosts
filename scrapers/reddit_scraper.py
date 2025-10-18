@@ -15,7 +15,7 @@ def clean_text(text: str) -> str:
 def collect_reddit_posts(
     subreddit_name: str = "politics",
     time_period_days: int = 30,
-    limit: int = 100,
+    limit: int = 100000,
     fetch_multiplier: int = 5,   # fetch extra to allow filtering
 ) -> List[Dict]:
 
