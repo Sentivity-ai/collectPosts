@@ -31,7 +31,7 @@ def collect_reddit_posts(
         # 1) Chronological pass (preferred)
         # Fetch more than `limit` so we can filter by time and still return up to `limit`.
         fetch_limit = min(1000, max(limit * fetch_multiplier, limit))
-        for post in subreddit.new(limit=fetch_limit):
+        for post in subreddit.top(limit=fetch_limit):
             # `new()` is newest->oldest, so we can break once older than cutoff
             if getattr(post, "created_utc", 0) < cutoff_ts:
                 break
