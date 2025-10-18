@@ -38,7 +38,9 @@ async def root():
         "endpoints": {
             "scrape": "/scrape-multi-source (POST)",
             "health": "/health (GET)"
-        }
+        },
+        "supported_sources": ["reddit", "youtube", "instagram", "quora", "threads"],
+        "time_periods": ["hour", "day", "week", "month", "year"]
     }
 
 @app.get("/health")
@@ -69,6 +71,12 @@ async def scrape_multiple_sources(request: ScrapeRequest):
             source = post.get("source", "unknown")
             source_breakdown[source] = source_breakdown.get(source, 0) + 1
         
+        # Generate hashtags from all posts
+        hashtags = []
+        if all_posts:
+            from hashtag_utils import generate_hashtags_from_posts
+            hashtags = generate_hashtags_from_posts(all_posts)
+        
         return {
             "status": "success",
             "query": request.query,
@@ -76,6 +84,7 @@ async def scrape_multiple_sources(request: ScrapeRequest):
             "days": request.days,
             "total_posts": len(all_posts),
             "source_breakdown": source_breakdown,
+            "hashtags": hashtags,
             "all_posts": all_posts
         }
         

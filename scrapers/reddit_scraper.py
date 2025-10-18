@@ -54,7 +54,7 @@ def collect_reddit_posts(
 
         # 2) Optional fallback if nothing found in the strict window
         if not posts:
-            for post in subreddit.hot(limit=min(5000, fetch_limit)):
+            for post in subreddit.top(limit=min(5000, fetch_limit)):
                 if getattr(post, "created_utc", 0) < cutoff_ts:
                     continue
                 if post.id in seen_ids:

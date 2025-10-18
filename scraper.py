@@ -3,8 +3,10 @@ from scrapers import (
     collect_reddit_posts,
     collect_youtube_video_titles,
     collect_instagram_posts,
-    collect_quora_posts
+    scrape_quora,
+    scrape_threads
 )
+from hashtag_utils import generate_hashtags_from_posts
 
 def scrape_posts(sources: List[str], query: str, time_passed: str = "week", limit: int = 100) -> List[Dict]:
     """
@@ -50,11 +52,21 @@ def scrape_posts(sources: List[str], query: str, time_passed: str = "week", limi
                 print(f"Instagram scraping completed: {len(posts)} posts found (real data)")
                 
             elif source.lower() == "quora":
-                posts = collect_quora_posts(query, days, limit)
+                posts = scrape_quora(query, time_passed, limit)
                 all_posts.extend(posts)
                 print(f"Quora scraping completed: {len(posts)} posts found (real data)")
                 
+            elif source.lower() == "threads":
+                posts = scrape_threads(query, time_passed, limit)
+                all_posts.extend(posts)
+                print(f"Threads scraping completed: {len(posts)} posts found (real data)")
+                
         except Exception as e:
             print(f"Error scraping {source}: {e}")
+    
+    # Generate unified hashtags from all posts
+    if all_posts:
+        hashtags = generate_hashtags_from_posts(all_posts)
+        print(f"Generated {len(hashtags)} hashtags: {hashtags[:5]}...")
     
     return all_posts

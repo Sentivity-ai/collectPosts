@@ -8,6 +8,18 @@ from typing import List, Dict
 def clean_text(text: str) -> str:
     return text.replace("\n", " ").strip() if isinstance(text, str) else ""
 
+def get_cutoff_date(time_passed: str) -> datetime:
+    """Convert time_passed string to cutoff datetime"""
+    now = datetime.utcnow()
+    delta = {
+        "hour": timedelta(hours=1),
+        "day": timedelta(days=1),
+        "week": timedelta(weeks=1),
+        "month": timedelta(days=30),
+        "year": timedelta(days=365),
+    }.get(time_passed, timedelta(days=30))
+    return now - delta
+
 def collect_instagram_posts(query: str = "politics", max_posts: int = 100, time_period_days: int = 30) -> List[Dict]:
     posts = []
     
@@ -42,18 +54,25 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 100, time_
                 if len(posts) >= max_posts:
                     break
                     
-                # Generate a random date within the time period
-                days_ago = random.randint(1, time_period_days)
-                created_utc = (datetime.utcnow() - timedelta(days=days_ago)).strftime("%Y-%m-%d %H:%M:%S")
+                # Use actual post date if available, otherwise generate within time period
+                if hasattr(post, 'date') and post.date:
+                    post_date = post.date
+                else:
+                    # Generate a random date within the time period
+                    days_ago = random.randint(1, time_period_days)
+                    post_date = datetime.utcnow() - timedelta(days=days_ago)
+                
+                # Format timestamp as ISO string
+                timestamp = post_date.isoformat() + "Z"
                 
                 posts.append({
-                    "source": "Instagram",
-                    "title": clean_text(post.caption or ""),
-                    "content": clean_text(post.caption or ""),
+                    "source": "instagram",
+                    "title": clean_text(post.caption or "")[:100],
+                    "content": clean_text(post.caption or "")[:500],
                     "author": post.owner_username,
                     "url": f"https://www.instagram.com/p/{post.shortcode}/",
                     "score": post.likes,
-                    "created_utc": created_utc
+                    "timestamp": timestamp
                 })
                 
         except Exception as e:
@@ -76,13 +95,13 @@ def collect_instagram_profile_posts(username: str, max_posts: int = 100) -> List
                 break
                 
             posts.append({
-                "source": "Instagram",
-                "title": clean_text(post.caption or ""),
-                "content": clean_text(post.caption or ""),
+                "source": "instagram",
+                "title": clean_text(post.caption or "")[:100],
+                "content": clean_text(post.caption or "")[:500],
                 "author": post.owner_username,
                 "url": f"https://www.instagram.com/p/{post.shortcode}/",
                 "score": post.likes,
-                "created_utc": post.date.strftime("%Y-%m-%d %H:%M:%S")
+                "timestamp": post.date.isoformat() + "Z"
             })
             
     except Exception as e:
