@@ -43,11 +43,16 @@ def scrape_threads(query: str = None, time_passed: str = "month", limit: int = 1
     ]
     
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
         'Accept-Encoding': 'gzip, deflate',
         'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Cache-Control': 'max-age=0'
     }
     
     for url in search_urls:
@@ -132,12 +137,12 @@ def scrape_threads(query: str = None, time_passed: str = "month", limit: int = 1
         # Rate limiting
         time.sleep(2)
     
-    # Fallback: Generate sample posts if scraping fails
+    # Only return real scraped data, no fallback generation
     if len(posts) == 0:
-        print("Trying Threads fallback extraction")
-        posts = _generate_threads_fallback_posts(query, limit, cutoff_date)
+        print("Threads scraping completed: 0 posts found (no real data available)")
+    else:
+        print(f"Threads scraping completed: {len(posts)} posts found (real data)")
     
-    print(f"Threads scraping completed: {len(posts)} posts found (real data)")
     return posts[:limit]
 
 def _process_threads_json(data: dict, cutoff_date: datetime, max_posts: int) -> List[Dict]:

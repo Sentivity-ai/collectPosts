@@ -35,11 +35,43 @@ def collect_instagram_posts(query: str = "politics", max_posts: int = 100, time_
             hashtag_name = query.replace(' ', '').lower()
             url = f"https://www.instagram.com/explore/tags/{hashtag_name}/"
             
-            response = session.get(url, timeout=10)
+            response = session.get(url, timeout=15)
             if response.status_code == 200:
-                # Parse Instagram data (simplified version)
-                # In a real implementation, you'd parse the JSON data from the page
-                pass
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Look for JSON data in script tags
+                scripts = soup.find_all('script', type='application/ld+json')
+                for script in scripts:
+                    try:
+                        import json
+                        data = json.loads(script.string)
+                        if isinstance(data, dict) and 'mainEntity' in data:
+                            # Process structured data
+                            pass
+                    except:
+                        continue
+                
+                # Look for post containers
+                post_containers = soup.find_all(['article', 'div'], class_=re.compile(r'post|item'))
+                for container in post_containers[:max_posts]:
+                    try:
+                        # Extract post data from HTML
+                        text_elem = container.find(['p', 'div'], class_=re.compile(r'text|content'))
+                        if text_elem:
+                            content = text_elem.get_text(strip=True)
+                            if content:
+                                posts.append({
+                                    "source": "instagram",
+                                    "title": content[:100],
+                                    "content": content[:500],
+                                    "author": "instagram_user",
+                                    "url": url,
+                                    "score": 0,
+                                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                                })
+                    except Exception as e:
+                        continue
                 
         except Exception as e:
             print(f"Instagram web scraping error: {e}")
