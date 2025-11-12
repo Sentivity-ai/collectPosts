@@ -1,0 +1,23 @@
+# Reddit API Credentials
+REDDIT_CLIENT_ID=F9rgR81aVwJSjyB0cfqzLQ
+REDDIT_CLIENT_SECRET=jW9w9dSkntRzjlo2_S_HKRxaiSFgVw
+
+# YouTube API Key
+YOUTUBE_API_KEY=AIzaSyAZwLva1HxzDbKFJuE9RVcxS5B4q_ol8yE
+
+# Instagram Credentials (for burner account)
+INSTAGRAM_USERNAME=your_instagram_username
+INSTAGRAM_PASSWORD=your_instagram_password
+
+# Quora API (if available)
+QUORA_API_KEY=your_quora_api_key
+
+# Threads Access Token (Meta Graph API)
+THREADS_ACCESS_TOKEN=your_threads_access_token
+
+# Optional: Proxy settings for web scraping
+PROXY_URL=your_proxy_url
+PROXY_USERNAME=your_proxy_username
+PROXY_PASSWORD=your_proxy_password
+
+

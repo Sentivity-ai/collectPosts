@@ -13,5 +13,16 @@ youtube-transcript-api==0.6.2
 pandas==2.1.4
 numpy==1.26.4
 
+# Analysis dependencies (from HBWorkshop notebook)
+sentence-transformers>=2.2.0
+hdbscan>=0.8.33
+joblib>=1.3.0
+openai>=1.0.0
+scikit-learn>=1.3.0
+vaderSentiment>=3.3.2
+rapidfuzz>=3.0.0
+nltk>=3.8.0
+
 # Client dependencies
 python-multipart==0.0.6
+python-dotenv>=1.0.0
