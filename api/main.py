@@ -80,6 +80,7 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    """Health check endpoint - responds immediately for port scanning"""
     return {"status": "healthy", "service": "collectposts"}
 
 @app.post("/scrape-multi-source")

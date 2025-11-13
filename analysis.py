@@ -18,24 +18,37 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from rapidfuzz import fuzz
 from typing import List, Dict, Optional, Tuple
 
-# Initialize OpenAI client
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    print("Warning: OPENAI_API_KEY not set. Summary generation will be disabled.")
-    client = None
-else:
-    client = openai.OpenAI(api_key=OPENAI_API_KEY)
+# Lazy loading for OpenAI client (only when needed)
+_client = None
+def get_openai_client():
+    """Lazy load OpenAI client only when needed"""
+    global _client
+    if _client is None:
+        OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+        if not OPENAI_API_KEY:
+            return None
+        _client = openai.OpenAI(api_key=OPENAI_API_KEY)
+    return _client
 
-# Load classifier and vectorizer if available
-try:
-    classifier = joblib.load('AutoClassifier.pkl')
-    vectorizer = joblib.load("AutoVectorizer.pkl")
-    FILTERING_ENABLED = True
-except Exception as e:
-    print(f"Warning: classifier/vectorizer not loaded -> filtering disabled: {e}")
-    classifier = None
-    vectorizer = None
-    FILTERING_ENABLED = False
+# Lazy loading for classifier and vectorizer (only when needed)
+_classifier = None
+_vectorizer = None
+FILTERING_ENABLED = False
+
+def get_classifier():
+    """Lazy load classifier only when needed"""
+    global _classifier, _vectorizer, FILTERING_ENABLED
+    if _classifier is None:
+        try:
+            _classifier = joblib.load('AutoClassifier.pkl')
+            try:
+                _vectorizer = joblib.load("AutoVectorizer.pkl")
+            except:
+                _vectorizer = None
+            FILTERING_ENABLED = True
+        except Exception as e:
+            FILTERING_ENABLED = False
+    return _classifier, _vectorizer
 
 # Initialize embedder
 _EMBEDDER = None
@@ -144,7 +157,9 @@ def get_combined_recent_discourse(
         return filtered_df
 
     # Apply classifier filtering if enabled
-    if (not no_pop_filter) and FILTERING_ENABLED and classifier_param is not None and vectorizer_param is not None:
+    if classifier_param is None or vectorizer_param is None:
+        classifier_param, vectorizer_param = get_classifier()
+    if (not no_pop_filter) and classifier_param is not None and vectorizer_param is not None:
         X = vectorizer_param.transform(filtered_df['text'])
         predictions = classifier_param.predict(X)
         keep_label = 0 if pop_culture else 1
@@ -281,6 +296,9 @@ Excerpts:
 {" ".join(cluster_texts)}
 Generate the summary in the specified format:
 """
+    client = get_openai_client()
+    if client is None:
+        return "OpenAI API key not configured. Cannot generate summary."
     try:
         resp = client.chat.completions.create(
             model="gpt-4o",
@@ -297,6 +315,7 @@ Generate the summary in the specified format:
 
 def generate_header(cluster_texts: List[str], base_subreddit: str) -> str:
     """Generate header for a cluster using OpenAI"""
+    client = get_openai_client()
     if client is None:
         return "OpenAI API key not configured. Cannot generate header."
 
