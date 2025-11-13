@@ -4,5 +4,5 @@ echo "🚀 Starting Social Media Collector..."
 echo "📊 Python version: $(python --version)"
 echo "🌐 Port: $PORT"
 
-# Start the FastAPI application
-exec uvicorn main:app --host 0.0.0.0 --port $PORT
+# Start the FastAPI application from api directory
+exec uvicorn api.main:app --host 0.0.0.0 --port $PORT
