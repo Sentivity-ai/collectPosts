@@ -75,7 +75,6 @@ REDDIT_CLIENT_SECRET=your_reddit_client_secret
 YOUTUBE_API_KEY=your_youtube_api_key
 INSTAGRAM_USERNAME=your_instagram_username
 INSTAGRAM_PASSWORD=your_instagram_password
-OPENAI_API_KEY=your_openai_api_key
 ```
 
 ## Output
