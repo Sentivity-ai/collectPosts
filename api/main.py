@@ -155,8 +155,17 @@ async def health_check():
 @app.post("/scrape-multi-source")
 async def scrape_multiple_sources(request: ScrapeRequest):
     try:
-        # Limit maximum posts to prevent timeouts
-        max_limit = min(request.limit_per_source, 500)
+        # Aggressive limits to prevent timeouts on free tier
+        # Reduce limits based on number of sources
+        num_sources = len(request.sources)
+        if num_sources >= 4:
+            max_limit = min(request.limit_per_source, 20)  # Very small for many sources
+        elif num_sources >= 3:
+            max_limit = min(request.limit_per_source, 30)
+        elif num_sources >= 2:
+            max_limit = min(request.limit_per_source, 50)
+        else:
+            max_limit = min(request.limit_per_source, 100)
         
         # Parse date range
         if request.begin_date and request.end_date:
