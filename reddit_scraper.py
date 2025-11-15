@@ -28,12 +28,19 @@ def ensure_nltk_data():
             print("Downloading punkt...")
             nltk.download('punkt', quiet=True)
         
-        # Download tagger
+        # Download tagger (try both old and new names)
         try:
             nltk.data.find('taggers/averaged_perceptron_tagger')
         except LookupError:
             print("Downloading averaged_perceptron_tagger...")
             nltk.download('averaged_perceptron_tagger', quiet=True)
+        
+        # Download new tagger name (for newer NLTK versions)
+        try:
+            nltk.data.find('taggers/averaged_perceptron_tagger_eng')
+        except LookupError:
+            print("Downloading averaged_perceptron_tagger_eng...")
+            nltk.download('averaged_perceptron_tagger_eng', quiet=True)
         
         # Download stopwords
         try:
