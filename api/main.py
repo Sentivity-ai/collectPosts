@@ -199,15 +199,15 @@ async def scrape_multiple_sources(request: ScrapeRequest):
                 continue  # Already done
                 
             try:
-                if source == 'youtube':
-                    # YouTube gets hard limit
-                    posts = collect_youtube_video_titles(
-                        query=request.query,
-                        hashtags=search_terms,
-                        max_results=min(30, max_limit),  # Reduced hard limit
-                        begin_date=begin_date,
-                        end_date=end_date
-                    )
+                    if source == 'youtube':
+                        # YouTube gets hard limit
+                        posts = collect_youtube_video_titles(
+                            query=request.query,
+                            hashtags=search_terms,
+                            max_results=min(30, max_limit),  # Reduced hard limit
+                            begin_date=begin_date,
+                            end_date=end_date
+                        )
                         
                     elif source == 'instagram':
                         posts = collect_instagram_posts(
