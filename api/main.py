@@ -174,39 +174,46 @@ async def scrape_multiple_sources(request: ScrapeRequest):
         
         # Step 1: Scrape Reddit with overlapper functionality
         if 'reddit' in request.sources:
-            reddit_posts = collect_reddit_posts_with_overlapper(
-                subreddit_name=request.query,
-                begin_date=begin_date,
-                end_date=end_date,
-                limit=max_limit
-            )
-            all_posts.extend(reddit_posts)
-            
-            # Extract hashtag bank from Reddit posts
-            hashtag_bank = extract_noun_hashtags(reddit_posts)
+            try:
+                reddit_posts = collect_reddit_posts_with_overlapper(
+                    subreddit_name=request.query,
+                    begin_date=begin_date,
+                    end_date=end_date,
+                    limit=max_limit
+                )
+                all_posts.extend(reddit_posts)
+                
+                # Extract hashtag bank from Reddit posts (only if we have posts)
+                if reddit_posts:
+                    hashtag_bank = extract_noun_hashtags(reddit_posts)
+            except Exception as e:
+                print(f"⚠️  Reddit scraping error: {e}")
+                # Continue with other sources even if Reddit fails
         
         # Step 2: Use hashtags to scrape other sources
-        if len(hashtag_bank) > 0:
-            for source in request.sources:
-                if source == 'reddit':
-                    continue  # Already done
-                    
-                try:
-                    if source == 'youtube':
-                        # YouTube gets hard limit
-                        posts = collect_youtube_video_titles(
-                            query=request.query,
-                            hashtags=hashtag_bank,
-                            max_results=min(50, max_limit),  # Hard limit
-                            begin_date=begin_date,
-                            end_date=end_date
-                        )
+        # If no hashtags from Reddit, use query directly
+        search_terms = hashtag_bank if len(hashtag_bank) > 0 else {request.query}
+        
+        for source in request.sources:
+            if source == 'reddit':
+                continue  # Already done
+                
+            try:
+                if source == 'youtube':
+                    # YouTube gets hard limit
+                    posts = collect_youtube_video_titles(
+                        query=request.query,
+                        hashtags=search_terms,
+                        max_results=min(30, max_limit),  # Reduced hard limit
+                        begin_date=begin_date,
+                        end_date=end_date
+                    )
                         
                     elif source == 'instagram':
                         posts = collect_instagram_posts(
                             query=request.query,
-                            hashtags=hashtag_bank,
-                            max_posts=max_limit,
+                            hashtags=search_terms,
+                            max_posts=min(20, max_limit),  # Reduced limit
                             begin_date=begin_date,
                             end_date=end_date
                         )
@@ -214,9 +221,9 @@ async def scrape_multiple_sources(request: ScrapeRequest):
                     elif source == 'quora':
                         posts = scrape_quora(
                             query=request.query,
-                            hashtags=hashtag_bank,
+                            hashtags=search_terms,
                             time_passed="week",
-                            limit=max_limit,
+                            limit=min(20, max_limit),  # Reduced limit
                             begin_date=begin_date,
                             end_date=end_date
                         )
@@ -224,9 +231,9 @@ async def scrape_multiple_sources(request: ScrapeRequest):
                     elif source == 'threads':
                         posts = scrape_threads(
                             query=request.query,
-                            hashtags=hashtag_bank,
+                            hashtags=search_terms,
                             time_passed="week",
-                            limit=max_limit,
+                            limit=min(20, max_limit),  # Reduced limit
                             begin_date=begin_date,
                             end_date=end_date
                         )

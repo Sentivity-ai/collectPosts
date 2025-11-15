@@ -282,9 +282,20 @@ def collect_reddit_posts_with_overlapper(
     try:
         subreddit = reddit.subreddit(subreddit_name)
         
-        # Comprehensive overlapper: Multiple strategies × Multiple time filters
-        time_filters = ["all", "year", "month", "week", "day"]
-        strategies = ["top", "controversial", "rising"]
+        # Optimized overlapper: Use fewer strategies to prevent timeouts
+        # Only use most effective combinations
+        if limit <= 50:
+            # Small limit: Just use top posts
+            time_filters = ["week", "month"]
+            strategies = ["top"]
+        elif limit <= 100:
+            # Medium limit: Top + controversial
+            time_filters = ["week", "month"]
+            strategies = ["top", "controversial"]
+        else:
+            # Large limit: All strategies but fewer time filters
+            time_filters = ["month", "year"]
+            strategies = ["top", "controversial", "rising"]
         
         for time_filter in time_filters:
             if len(posts) >= limit:
