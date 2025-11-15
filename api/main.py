@@ -32,6 +32,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup_event():
+    """Download NLTK data on startup"""
+    import nltk
+    try:
+        # Download required NLTK data
+        nltk.download('punkt', quiet=True)
+        nltk.download('punkt_tab', quiet=True)
+        nltk.download('averaged_perceptron_tagger', quiet=True)
+        nltk.download('stopwords', quiet=True)
+        print("✅ NLTK data downloaded successfully")
+    except Exception as e:
+        print(f"⚠️  NLTK download warning: {e}")
+
 class ScrapeRequest(BaseModel):
     sources: List[str]
     query: str
