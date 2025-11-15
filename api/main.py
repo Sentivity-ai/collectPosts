@@ -34,17 +34,56 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Download NLTK data on startup"""
+    """Download NLTK data on startup - ensure it's available before serving requests"""
     import nltk
+    import os
+    
+    # Set NLTK data directory to a writable location
+    nltk_data_dir = os.getenv('NLTK_DATA', '/opt/render/nltk_data')
+    os.makedirs(nltk_data_dir, exist_ok=True)
+    nltk.data.path.append(nltk_data_dir)
+    
     try:
-        # Download required NLTK data
-        nltk.download('punkt', quiet=True)
-        nltk.download('punkt_tab', quiet=True)
-        nltk.download('averaged_perceptron_tagger', quiet=True)
-        nltk.download('stopwords', quiet=True)
-        print("✅ NLTK data downloaded successfully")
+        # Download required NLTK data - punkt_tab is critical for newer NLTK
+        print("📥 Downloading NLTK data on startup...")
+        
+        # Download punkt_tab first (required by newer NLTK)
+        try:
+            nltk.data.find('tokenizers/punkt_tab')
+            print("✅ punkt_tab already available")
+        except LookupError:
+            print("📥 Downloading punkt_tab...")
+            nltk.download('punkt_tab', quiet=True)
+        
+        # Download punkt for compatibility
+        try:
+            nltk.data.find('tokenizers/punkt')
+            print("✅ punkt already available")
+        except LookupError:
+            print("📥 Downloading punkt...")
+            nltk.download('punkt', quiet=True)
+        
+        # Download tagger
+        try:
+            nltk.data.find('taggers/averaged_perceptron_tagger')
+            print("✅ averaged_perceptron_tagger already available")
+        except LookupError:
+            print("📥 Downloading averaged_perceptron_tagger...")
+            nltk.download('averaged_perceptron_tagger', quiet=True)
+        
+        # Download stopwords
+        try:
+            nltk.data.find('corpora/stopwords')
+            print("✅ stopwords already available")
+        except LookupError:
+            print("📥 Downloading stopwords...")
+            nltk.download('stopwords', quiet=True)
+        
+        print("✅ All NLTK data ready")
     except Exception as e:
         print(f"⚠️  NLTK download warning: {e}")
+        import traceback
+        traceback.print_exc()
 
 class ScrapeRequest(BaseModel):
     sources: List[str]

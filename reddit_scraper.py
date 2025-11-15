@@ -10,38 +10,44 @@ import random
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction import text
 
-# Download required NLTK data
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
+# Download required NLTK data - ensure punkt_tab is downloaded first
+def ensure_nltk_data():
+    """Ensure all required NLTK data is downloaded"""
     try:
-        nltk.download('punkt', quiet=True)
-    except:
-        pass
+        # Try to find punkt_tab first (newer NLTK versions require this)
+        try:
+            nltk.data.find('tokenizers/punkt_tab')
+        except LookupError:
+            print("Downloading punkt_tab...")
+            nltk.download('punkt_tab', quiet=True)
+        
+        # Also download punkt for compatibility
+        try:
+            nltk.data.find('tokenizers/punkt')
+        except LookupError:
+            print("Downloading punkt...")
+            nltk.download('punkt', quiet=True)
+        
+        # Download tagger
+        try:
+            nltk.data.find('taggers/averaged_perceptron_tagger')
+        except LookupError:
+            print("Downloading averaged_perceptron_tagger...")
+            nltk.download('averaged_perceptron_tagger', quiet=True)
+        
+        # Download stopwords
+        try:
+            nltk.data.find('corpora/stopwords')
+        except LookupError:
+            print("Downloading stopwords...")
+            nltk.download('stopwords', quiet=True)
+        
+        print("✅ NLTK data ready")
+    except Exception as e:
+        print(f"⚠️  NLTK download error: {e}")
 
-try:
-    nltk.data.find('tokenizers/punkt_tab')
-except LookupError:
-    try:
-        nltk.download('punkt_tab', quiet=True)
-    except:
-        pass
-
-try:
-    nltk.data.find('taggers/averaged_perceptron_tagger')
-except LookupError:
-    try:
-        nltk.download('averaged_perceptron_tagger', quiet=True)
-    except:
-        pass
-
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    try:
-        nltk.download('stopwords', quiet=True)
-    except:
-        pass
+# Download NLTK data on import
+ensure_nltk_data()
 
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
