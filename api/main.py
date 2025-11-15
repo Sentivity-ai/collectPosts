@@ -87,6 +87,14 @@ async def startup_event():
             print("📥 Downloading stopwords...")
             nltk.download('stopwords', quiet=True)
         
+        # Download all NLTK data as a fallback (ensures everything is available)
+        print("📥 Ensuring all NLTK data is available...")
+        try:
+            nltk.download('all', quiet=True)
+            print("✅ All NLTK data downloaded")
+        except Exception as e:
+            print(f"⚠️  Could not download all NLTK data: {e}")
+        
         print("✅ All NLTK data ready")
     except Exception as e:
         print(f"⚠️  NLTK download warning: {e}")
