@@ -208,54 +208,54 @@ async def scrape_multiple_sources(request: ScrapeRequest):
                 continue  # Already done
                 
             try:
-                    if source == 'youtube':
-                        # YouTube gets hard limit
-                        posts = collect_youtube_video_titles(
-                            query=request.query,
-                            hashtags=search_terms,
-                            max_results=min(30, max_limit),  # Reduced hard limit
-                            begin_date=begin_date,
-                            end_date=end_date
-                        )
-                        
-                    elif source == 'instagram':
-                        posts = collect_instagram_posts(
-                            query=request.query,
-                            hashtags=search_terms,
-                            max_posts=min(20, max_limit),  # Reduced limit
-                            begin_date=begin_date,
-                            end_date=end_date
-                        )
-                        
-                    elif source == 'quora':
-                        posts = scrape_quora(
-                            query=request.query,
-                            hashtags=search_terms,
-                            time_passed="week",
-                            limit=min(20, max_limit),  # Reduced limit
-                            begin_date=begin_date,
-                            end_date=end_date
-                        )
-                        
-                    elif source == 'threads':
-                        posts = scrape_threads(
-                            query=request.query,
-                            hashtags=search_terms,
-                            time_passed="week",
-                            limit=min(20, max_limit),  # Reduced limit
-                            begin_date=begin_date,
-                            end_date=end_date
-                        )
+                if source == 'youtube':
+                    # YouTube gets hard limit
+                    posts = collect_youtube_video_titles(
+                        query=request.query,
+                        hashtags=search_terms,
+                        max_results=min(30, max_limit),  # Reduced hard limit
+                        begin_date=begin_date,
+                        end_date=end_date
+                    )
                     
-                    # Random sample (except YouTube has hard limit)
-                    if source != 'youtube' and len(posts) > max_limit:
-                        posts = random.sample(posts, max_limit)
+                elif source == 'instagram':
+                    posts = collect_instagram_posts(
+                        query=request.query,
+                        hashtags=search_terms,
+                        max_posts=min(20, max_limit),  # Reduced limit
+                        begin_date=begin_date,
+                        end_date=end_date
+                    )
                     
-                    all_posts.extend(posts)
+                elif source == 'quora':
+                    posts = scrape_quora(
+                        query=request.query,
+                        hashtags=search_terms,
+                        time_passed="week",
+                        limit=min(20, max_limit),  # Reduced limit
+                        begin_date=begin_date,
+                        end_date=end_date
+                    )
                     
-                except Exception as e:
-                    print(f"Error scraping {source}: {e}")
-                    continue
+                elif source == 'threads':
+                    posts = scrape_threads(
+                        query=request.query,
+                        hashtags=search_terms,
+                        time_passed="week",
+                        limit=min(20, max_limit),  # Reduced limit
+                        begin_date=begin_date,
+                        end_date=end_date
+                    )
+                
+                # Random sample (except YouTube has hard limit)
+                if source != 'youtube' and len(posts) > max_limit:
+                    posts = random.sample(posts, max_limit)
+                
+                all_posts.extend(posts)
+                
+            except Exception as e:
+                print(f"Error scraping {source}: {e}")
+                continue
         
         # Count posts by source
         source_breakdown = {}
