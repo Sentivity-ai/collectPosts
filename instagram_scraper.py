@@ -1,12 +1,10 @@
 import os
-import requests
 import random
 import instaloader
 from datetime import datetime, timedelta
 from typing import List, Dict
-import time
-import re
-from bs4 import BeautifulSoup
+
+from site_search_utils import search_site_posts
 
 def clean_text(text: str) -> str:
     """Clean text by removing newlines and extra whitespace"""
@@ -37,6 +35,7 @@ def collect_instagram_posts(
     Uses 'top' hashtag posts and popular content
     """
     posts = []
+    seen_urls = set()
     
     # Set default date range if not provided
     if not begin_date:
@@ -106,7 +105,7 @@ def collect_instagram_posts(
                     
                     caption = post.caption or ""
                     
-                    posts.append({
+                    new_post = {
                         "source": "instagram",
                         "title": caption[:100] + "..." if len(caption) > 100 else caption,
                         "content": clean_text(caption),
@@ -115,7 +114,12 @@ def collect_instagram_posts(
                         "score": post.likes,
                         "timestamp": post_time.isoformat() + "Z",
                         "search_term": search_term
-                    })
+                    }
+
+                    if new_post["url"] in seen_urls:
+                        continue
+                    seen_urls.add(new_post["url"])
+                    posts.append(new_post)
                     
                 except Exception as e:
                     print(f"⚠️ Error processing Instagram post: {e}")
@@ -127,10 +131,27 @@ def collect_instagram_posts(
             print(f"⚠️ Instaloader failed for #{search_term}: {e}")
             continue
     
-    # Strategy 2: Skip web scraping - too slow and unreliable
-    # Instagram web scraping is blocked/rate-limited and takes too long
+    # Strategy 2: Lightweight DuckDuckGo fallback
     if len(posts) < max_posts:
-        print(f"⚠️ Instagram web scraping skipped (too slow/unreliable). Using Instaloader only.")
+        remaining_total = max_posts - len(posts)
+        print(f"📊 DuckDuckGo fallback for Instagram (remaining {remaining_total} posts)...")
+        for term in search_terms:
+            if remaining_total <= 0:
+                break
+            fallback_posts = search_site_posts(
+                site="www.instagram.com",
+                query=term,
+                limit=remaining_total,
+                begin_date=begin_date,
+                end_date=end_date,
+                source="instagram",
+            )
+            for fp in fallback_posts:
+                if fp["url"] in seen_urls:
+                    continue
+                seen_urls.add(fp["url"])
+                posts.append(fp)
+            remaining_total = max_posts - len(posts)
     
     if len(posts) == 0:
         print("⚠️ No Instagram posts found")

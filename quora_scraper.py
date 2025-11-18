@@ -1,8 +1,7 @@
-import os
-import requests
 from datetime import datetime, timedelta
 from typing import List, Dict
-import random
+
+from site_search_utils import search_site_posts
 
 def clean_text(text: str) -> str:
     """Clean text by removing newlines and extra whitespace"""
@@ -49,77 +48,25 @@ def scrape_quora(
     # Use hashtags if provided, otherwise use query
     search_terms = list(hashtags[:3]) if hashtags else [query]
     
-    try:
-        from bs4 import BeautifulSoup
-        import random
-        
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-        }
-        
-        # Check for Quora session cookie (if user has authenticated)
-        quora_session = os.getenv("QUORA_SESSION_COOKIE")
-        if quora_session:
-            headers['Cookie'] = f'session={quora_session}'
-            print("🔐 Using Quora session cookie for authenticated access")
-        
-        for search_term in search_terms:
-            if len(posts) >= limit:
-                break
-            
-            try:
-                # Try Quora search URL
-                url = f"https://www.quora.com/search?q={search_term}"
-                response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
-                
-                if response.status_code == 200:
-                    soup = BeautifulSoup(response.content, 'html.parser')
-                    
-                    # Look for question titles (Quora's structure)
-                    question_elements = soup.find_all(['div', 'span'], class_=lambda x: x and ('question' in x.lower() or 'qtext' in x.lower()))
-                    
-                    for elem in question_elements[:limit]:
-                        if len(posts) >= limit:
-                            break
-                        
-                        text = elem.get_text(strip=True)
-                        if len(text) > 20 and len(text) < 500:
-                            # Generate a date within the range
-                            time_range = (end_date - begin_date).total_seconds()
-                            random_offset = random.randint(0, int(time_range))
-                            post_time = begin_date + timedelta(seconds=random_offset)
-                            
-                            posts.append({
-                                "source": "quora",
-                                "title": text[:100],
-                                "content": clean_text(text),
-                                "author": "Quora User",
-                                "url": url,
-                                "score": random.randint(0, 100),
-                                "timestamp": post_time.isoformat() + "Z"
-                            })
-                
-                if len(posts) > 0:
-                    break
-                    
-            except Exception as e:
-                print(f"⚠️ Quora search error for '{search_term}': {e}")
-                continue
-        
-        if len(posts) == 0:
-            print(f"⚠️ No Quora posts found - Quora has strong anti-scraping measures")
-        else:
-            print(f"✅ Quora scraping completed: {len(posts)} posts found")
-            
-    except Exception as e:
-        print(f"⚠️ Quora scraping failed: {e}")
+    for term in search_terms:
+        if len(posts) >= limit:
+            break
+        remaining = limit - len(posts)
+        print(f"📊 DuckDuckGo fallback for Quora term '{term}'...")
+        posts.extend(
+            search_site_posts(
+                site="www.quora.com",
+                query=term,
+                limit=remaining,
+                begin_date=begin_date,
+                end_date=end_date,
+                source="quora",
+            )
+        )
+    
+    if len(posts) == 0:
+        print("⚠️ No Quora posts found via search fallback")
+    else:
+        print(f"✅ Quora search fallback returned {len(posts)} posts")
     
     return posts

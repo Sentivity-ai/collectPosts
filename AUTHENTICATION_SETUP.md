@@ -13,8 +13,8 @@ Instagram scraping works best with authentication. Here's how to set it up:
 Add these to your `.env` file or Render environment variables:
 
 ```
-INSTAGRAM_USERNAME=your_burner_account_username
-INSTAGRAM_PASSWORD=your_burner_account_password
+INSTAGRAM_USERNAME=sentivityburner
+INSTAGRAM_PASSWORD=sairam77
 ```
 
 ### 3. How It Works
