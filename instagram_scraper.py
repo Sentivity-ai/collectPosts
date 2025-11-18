@@ -75,10 +75,17 @@ def collect_instagram_posts(
         try:
             print(f"📊 Instagram scraping with Instaloader (TOP hashtag: #{search_term})...")
             
-            # Get top posts from hashtag
+            # Get top posts from hashtag (limit to avoid too much scraping)
             hashtag = instaloader.Hashtag.from_name(loader.context, search_term)
         
+            # Limit posts to check to avoid long scraping
+            post_count = 0
+            max_check = min(max_posts * 3, 100)  # Check 3x limit or max 100 posts
+            
             for post in hashtag.get_posts():
+                post_count += 1
+                if post_count > max_check:
+                    break
                 if len(posts) >= max_posts:
                     break
                 
@@ -111,123 +118,10 @@ def collect_instagram_posts(
             print(f"⚠️ Instaloader failed for #{search_term}: {e}")
             continue
     
-    # Strategy 2: Web scraping for top/popular content
+    # Strategy 2: Skip web scraping - too slow and unreliable
+    # Instagram web scraping is blocked/rate-limited and takes too long
     if len(posts) < max_posts:
-        try:
-            print(f"📊 Instagram web scraping (TOP/POPULAR content)...")
-            
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Cache-Control': 'max-age=0'
-            }
-            
-            # Try different Instagram URLs for top content
-            urls = [
-                f"https://www.instagram.com/explore/tags/{query}/",
-                f"https://www.instagram.com/explore/tags/{query}/?hl=en",
-                f"https://www.instagram.com/{query}/",
-                "https://www.instagram.com/explore/"
-            ]
-            
-            session = requests.Session()
-            session.headers.update(headers)
-            
-            for url in urls:
-                if len(posts) >= max_posts:
-                    break
-                
-                try:
-                    print(f"Trying Instagram URL: {url}")
-                    time.sleep(random.uniform(2, 4))
-                    
-                    response = session.get(url, timeout=15)
-                    response.raise_for_status()
-                    
-                    soup = BeautifulSoup(response.content, 'html.parser')
-                    
-                    # Look for JSON-LD structured data (Instagram uses this)
-                    json_pattern = r'<script type="application/ld\+json">(.*?)</script>'
-                    json_matches = re.findall(json_pattern, response.text, re.DOTALL)
-                    
-                    for json_str in json_matches:
-                        try:
-                            import json
-                            data = json.loads(json_str)
-                            
-                            # Extract post data from JSON-LD
-                            if isinstance(data, dict) and data.get("@type") == "SocialMediaPosting":
-                                text = data.get("text", "")
-                                author = data.get("author", {}).get("name", "Unknown")
-                                post_time_str = data.get("datePublished", "")
-                                
-                                if text and post_time_str:
-                                    try:
-                                        post_time = datetime.fromisoformat(post_time_str.replace('Z', '+00:00'))
-                                        post_time_utc = post_time.replace(tzinfo=None)
-                                        
-                                        if post_time_utc < begin_date or post_time_utc > end_date:
-                                            continue
-                                        
-                                        posts.append({
-                                            "source": "instagram",
-                                            "title": text[:100] + "..." if len(text) > 100 else text,
-                                            "content": clean_text(text),
-                                            "author": author,
-                                            "url": data.get("url", ""),
-                                            "score": random.randint(10, 1000),
-                                            "timestamp": post_time_utc.isoformat() + "Z",
-                                            "method": "web_scraping_top"
-                                        })
-                                        
-                                        if len(posts) >= max_posts:
-                                            break
-                                            
-                                    except Exception as e:
-                                        continue
-                                        
-                        except json.JSONDecodeError:
-                            continue
-                    
-                    # Also try general HTML parsing
-                    post_elements = soup.find_all(['div', 'span'], string=re.compile(r'.{10,}'))
-                    for element in post_elements[:20]:  # Limit to avoid too many
-                        if len(posts) >= max_posts:
-                            break
-                        
-                        text = element.get_text(strip=True)
-                        if len(text) > 10 and len(text) < 500:
-                            posts.append({
-                                "source": "instagram",
-                                "title": text[:100] + "..." if len(text) > 100 else text,
-                                "content": clean_text(text),
-                                "author": "instagram_user",
-                                "url": url,
-                                "score": random.randint(10, 1000),
-                                "timestamp": datetime.utcnow().isoformat() + "Z",
-                                "method": "web_scraping_general"
-                            })
-                    
-                except Exception as e:
-                    print(f"⚠️ Error with Instagram URL {url}: {e}")
-                    continue
-            
-            print(f"✅ Web scraping TOP: {len([p for p in posts if p.get('method') == 'web_scraping_top'])} posts")
-            
-        except Exception as e:
-            print(f"⚠️ Instagram web scraping failed: {e}")
-    
-    # Remove method field from final output
-    for post in posts:
-        if 'method' in post:
-            del post['method']
+        print(f"⚠️ Instagram web scraping skipped (too slow/unreliable). Using Instaloader only.")
     
     if len(posts) == 0:
         print("⚠️ No Instagram posts found")

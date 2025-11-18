@@ -282,20 +282,27 @@ def collect_reddit_posts_with_overlapper(
     try:
         subreddit = reddit.subreddit(subreddit_name)
         
-        # Optimized overlapper: Use fewer strategies to prevent timeouts
-        # Only use most effective combinations
-        if limit <= 50:
-            # Small limit: Just use top posts
-            time_filters = ["week", "month"]
+        # Determine if we need historical data (more than 1 month ago or large range)
+        days_diff = (end_date - begin_date).days
+        months_ago = (datetime.utcnow() - end_date).days / 30
+        
+        # For historical dates or large ranges, use .top() with time_filter='all'
+        if months_ago > 1 or days_diff > 90:
+            # Historical data: Use .top() with 'all' time filter
+            print(f"📅 Historical range detected ({days_diff} days, {months_ago:.1f} months ago) - using .top(time_filter='all')")
+            time_filters = ["all"]
             strategies = ["top"]
-        elif limit <= 100:
-            # Medium limit: Top + controversial
-            time_filters = ["week", "month"]
-            strategies = ["top", "controversial"]
         else:
-            # Large limit: All strategies but fewer time filters
-            time_filters = ["month", "year"]
-            strategies = ["top", "controversial", "rising"]
+            # Recent data: Optimized overlapper
+            if limit <= 50:
+                time_filters = ["week", "month"]
+                strategies = ["top"]
+            elif limit <= 100:
+                time_filters = ["week", "month"]
+                strategies = ["top", "controversial"]
+            else:
+                time_filters = ["month", "year"]
+                strategies = ["top", "controversial", "rising"]
         
         for time_filter in time_filters:
             if len(posts) >= limit:
@@ -314,7 +321,9 @@ def collect_reddit_posts_with_overlapper(
                     # Calculate fetch limit based on strategy and time filter
                     if strategy == "top":
                         if time_filter == 'all':
-                            fetch_limit = min(5000, limit * fetch_multiplier)
+                            # For historical data, fetch much more to ensure we get enough posts
+                            # Reddit's .top(all) returns posts sorted by score, so we need to fetch many
+                            fetch_limit = min(10000, limit * 50)  # Fetch 50x for historical data
                         elif time_filter == 'year':
                             fetch_limit = min(2000, limit * fetch_multiplier)
                         elif time_filter == 'month':
@@ -323,7 +332,9 @@ def collect_reddit_posts_with_overlapper(
                             fetch_limit = min(500, limit * fetch_multiplier)
                         
                         # Use time_filter for top posts
+                        fetched_count = 0
                         for post in method(limit=fetch_limit, time_filter=time_filter):
+                            fetched_count += 1
                             if len(posts) >= limit:
                                 break
                             
@@ -381,7 +392,10 @@ def collect_reddit_posts_with_overlapper(
                             })
                     
                     strategy_posts = len([p for p in posts if p.get('strategy') == strategy and p.get('time_filter') == time_filter])
-                    print(f"✅ {strategy}({time_filter}): {strategy_posts} posts")
+                    if time_filter == 'all':
+                        print(f"✅ {strategy}({time_filter}): {strategy_posts} posts (fetched {fetched_count}, filtered by date)")
+                    else:
+                        print(f"✅ {strategy}({time_filter}): {strategy_posts} posts")
                     
                 except Exception as e:
                     print(f"⚠️ Error with {strategy}({time_filter}): {e}")
