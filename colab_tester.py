@@ -10,7 +10,7 @@ import time
 
 BASE_URL = "https://collectposts.onrender.com"
 
-def scrape_once(query, sources, limit=100, time_period="week", timeout=200):
+def scrape_once(query, sources, limit=100, time_period="week", timeout=300):
     """
     Scrape posts from CollectPosts API
     
@@ -160,12 +160,12 @@ def test_multiple_periods(query, sources, limit=100, periods=["hour", "day", "we
 
 # Example usage for Colab
 if __name__ == "__main__":
-    # Test parameters
+    # Test parameters - START WITH SMALLER VALUES FOR TESTING
     QUERY = "progun"
-    SOURCES = ["reddit", "youtube", "instagram", "quora", "threads"]
-    TIME_PERIODS = ["hour", "day", "week", "month", "year"]
-    LIMIT = 100
-    TIMEOUT = 200
+    SOURCES = ["reddit", "youtube"]  # Start with fewer sources
+    TIME_PERIODS = ["week", "month"]  # Start with fewer periods
+    LIMIT = 50  # Start with smaller limit
+    TIMEOUT = 300  # Increased timeout
     
     print("🚀 CollectPosts - Full Source × Time Period Tester (Notebook)")
     print("=" * 60)

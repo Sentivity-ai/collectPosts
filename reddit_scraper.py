@@ -323,7 +323,8 @@ def collect_reddit_posts_with_overlapper(
                         if time_filter == 'all':
                             # For historical data, fetch much more to ensure we get enough posts
                             # Reddit's .top(all) returns posts sorted by score, so we need to fetch many
-                            fetch_limit = min(10000, limit * 50)  # Fetch 50x for historical data
+                            # For a 2-week range, we might need to fetch 1000+ posts to find matches
+                            fetch_limit = min(10000, max(1000, limit * 100))  # Fetch 100x or at least 1000
                         elif time_filter == 'year':
                             fetch_limit = min(2000, limit * fetch_multiplier)
                         elif time_filter == 'month':
@@ -332,34 +333,54 @@ def collect_reddit_posts_with_overlapper(
                             fetch_limit = min(500, limit * fetch_multiplier)
                         
                         # Use time_filter for top posts
+                        # For historical data with 'all', we may need multiple fetches
                         fetched_count = 0
-                        for post in method(limit=fetch_limit, time_filter=time_filter):
-                            fetched_count += 1
+                        in_range_count = 0
+                        max_iterations = 5 if time_filter == 'all' else 1  # Try multiple fetches for historical
+                        
+                        for iteration in range(max_iterations):
                             if len(posts) >= limit:
                                 break
+                                
+                            iteration_fetch_limit = min(fetch_limit, 1000)  # Reddit API limit per call
                             
-                            # Check if post is within date range
-                            post_time = datetime.utcfromtimestamp(post.created_utc)
-                            if post_time < begin_date or post_time > end_date:
-                                continue
-                            
-                            post_url = f"https://reddit.com{getattr(post, 'permalink', '')}"
-                            if post_url in seen_urls:
-                                continue
-                            seen_urls.add(post_url)
+                            for post in method(limit=iteration_fetch_limit, time_filter=time_filter):
+                                fetched_count += 1
+                                
+                                # Check if post is within date range
+                                post_time = datetime.utcfromtimestamp(post.created_utc)
+                                if post_time < begin_date or post_time > end_date:
+                                    continue
+                                
+                                in_range_count += 1
+                                if len(posts) >= limit:
+                                    break
+                                
+                                post_url = f"https://reddit.com{getattr(post, 'permalink', '')}"
+                                if post_url in seen_urls:
+                                    continue
+                                seen_urls.add(post_url)
 
-                            posts.append({
-                                "source": "reddit",
-                                "title": clean_text(getattr(post, "title", "")),
-                                "content": clean_text(getattr(post, "selftext", "")),
-                                "author": (post.author.name if getattr(post, "author", None) else "[deleted]"),
-                                "url": post_url,
-                                "score": getattr(post, "score", 0),
-                                "timestamp": post_time.isoformat() + "Z",
-                                "id": post.id,
-                                "strategy": strategy,
-                                "time_filter": time_filter
-                            })
+                                posts.append({
+                                    "source": "reddit",
+                                    "title": clean_text(getattr(post, "title", "")),
+                                    "content": clean_text(getattr(post, "selftext", "")),
+                                    "author": (post.author.name if getattr(post, "author", None) else "[deleted]"),
+                                    "url": post_url,
+                                    "score": getattr(post, "score", 0),
+                                    "timestamp": post_time.isoformat() + "Z",
+                                    "id": post.id,
+                                    "strategy": strategy,
+                                    "time_filter": time_filter
+                                })
+                            
+                            # If we got enough posts or fetched enough, break
+                            if len(posts) >= limit or fetched_count >= fetch_limit:
+                                break
+                            
+                            # For 'all' time filter, we've already gotten the top posts
+                            # Additional iterations won't help
+                            break
                     else:
                         # For controversial and rising, use smaller limits
                         fetch_limit = min(200, limit - len(posts))
@@ -393,7 +414,7 @@ def collect_reddit_posts_with_overlapper(
                     
                     strategy_posts = len([p for p in posts if p.get('strategy') == strategy and p.get('time_filter') == time_filter])
                     if time_filter == 'all':
-                        print(f"✅ {strategy}({time_filter}): {strategy_posts} posts (fetched {fetched_count}, filtered by date)")
+                        print(f"✅ {strategy}({time_filter}): {strategy_posts} posts (fetched {fetched_count}, {in_range_count} in date range)")
                     else:
                         print(f"✅ {strategy}({time_filter}): {strategy_posts} posts")
                     
