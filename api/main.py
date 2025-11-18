@@ -197,6 +197,8 @@ async def scrape_multiple_sources(request: ScrapeRequest):
                     hashtag_bank = extract_noun_hashtags(reddit_posts)
             except Exception as e:
                 print(f"⚠️  Reddit scraping error: {e}")
+                import traceback
+                traceback.print_exc()
                 # Continue with other sources even if Reddit fails
         
         # Step 2: Use hashtags to scrape other sources

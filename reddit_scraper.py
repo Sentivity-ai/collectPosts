@@ -284,7 +284,13 @@ def collect_reddit_posts_with_overlapper(
         
         # Determine if we need historical data (more than 1 month ago or large range)
         days_diff = (end_date - begin_date).days
-        months_ago = (datetime.utcnow() - end_date).days / 30
+        now = datetime.utcnow()
+        
+        # Handle future dates - if end_date is in future, use now as reference
+        if end_date > now:
+            months_ago = (now - begin_date).days / 30
+        else:
+            months_ago = (now - end_date).days / 30
         
         # For narrow historical windows, we need a different strategy
         # Reddit's .top(all) returns highest-scoring posts which may not include our date range
