@@ -1,3 +1,4 @@
+import os
 import requests
 from datetime import datetime, timedelta
 from typing import List, Dict
@@ -53,9 +54,22 @@ def scrape_quora(
         import random
         
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
         }
+        
+        # Check for Quora session cookie (if user has authenticated)
+        quora_session = os.getenv("QUORA_SESSION_COOKIE")
+        if quora_session:
+            headers['Cookie'] = f'session={quora_session}'
+            print("🔐 Using Quora session cookie for authenticated access")
         
         for search_term in search_terms:
             if len(posts) >= limit:
@@ -64,7 +78,7 @@ def scrape_quora(
             try:
                 # Try Quora search URL
                 url = f"https://www.quora.com/search?q={search_term}"
-                response = requests.get(url, headers=headers, timeout=10)
+                response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
                 
                 if response.status_code == 200:
                     soup = BeautifulSoup(response.content, 'html.parser')

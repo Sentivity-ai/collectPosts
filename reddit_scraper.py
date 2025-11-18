@@ -322,13 +322,14 @@ def collect_reddit_posts_with_overlapper(
         elif months_ago > 1 or days_diff > 90 or (begin_date < now and end_date > now):
             # Historical data or large range: Use .top() with 'all' time filter
             # Also handle ranges that span past and future
+            # For very large ranges, also try search API to find more posts
             if begin_date < now and end_date > now:
-                print(f"📅 Large range detected ({days_diff} days, spans past and future) - using .top(time_filter='all')")
+                print(f"📅 Large range detected ({days_diff} days, spans past and future) - using .top(time_filter='all') + search")
             else:
-                print(f"📅 Historical range detected ({days_diff} days, {months_ago:.1f} months ago) - using .top(time_filter='all')")
+                print(f"📅 Historical range detected ({days_diff} days, {months_ago:.1f} months ago) - using .top(time_filter='all') + search")
             time_filters = ["all"]
             strategies = ["top"]
-            use_search = False
+            use_search = True  # Also try search for large ranges
         else:
             # Recent data: Optimized overlapper
             if limit <= 50:

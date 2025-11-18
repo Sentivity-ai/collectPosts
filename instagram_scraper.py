@@ -58,14 +58,23 @@ def collect_instagram_posts(
         try:
             print(f"🔐 Logging into Instagram as {instagram_username}...")
             loader = instaloader.Instaloader()
-            loader.login(instagram_username, instagram_password)
-            print("✅ Instagram login successful")
+            # Try to load session if it exists
+            try:
+                loader.load_session_from_file(instagram_username)
+                print("✅ Loaded existing Instagram session")
+            except:
+                # If no session, login
+                loader.login(instagram_username, instagram_password)
+                # Save session for future use
+                loader.save_session_to_file()
+                print("✅ Instagram login successful and session saved")
         except Exception as e:
             print(f"⚠️ Instagram login failed: {e}")
             print("⚠️ Continuing without login (may have rate limits)...")
             loader = instaloader.Instaloader()
     else:
         print("⚠️ Instagram credentials not set. Using anonymous mode (may have rate limits)...")
+        print("⚠️ Set INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD environment variables for better results")
         loader = instaloader.Instaloader()
     
     for search_term in search_terms:

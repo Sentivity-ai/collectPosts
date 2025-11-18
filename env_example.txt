@@ -9,6 +9,9 @@ YOUTUBE_API_KEY=AIzaSyAZwLva1HxzDbKFJuE9RVcxS5B4q_ol8yE
 INSTAGRAM_USERNAME=your_instagram_username
 INSTAGRAM_PASSWORD=your_instagram_password
 
+# Optional: Quora session cookie (extract from browser after logging in)
+# QUORA_SESSION_COOKIE=your_quora_session_cookie
+
 # Quora API (if available)
 QUORA_API_KEY=your_quora_api_key
 
