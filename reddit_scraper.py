@@ -326,20 +326,72 @@ def collect_reddit_posts_with_overlapper(
                 strategies = ["top", "controversial", "rising"]
             use_search = False
         
-        # Strategy 1: For narrow historical windows, try search API first
+        # Strategy 1: For narrow historical windows, use search API with keyword queries
+        # This helps get more posts that might be in our date range
         if use_search and len(posts) < limit:
             try:
-                print(f"🔍 Using Reddit search API for date range {begin_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}...")
+                print(f"🔍 Using Reddit search API to find more posts in date range {begin_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}...")
                 
-                # Convert dates to Unix timestamps for Reddit search
-                begin_timestamp = int(begin_date.timestamp())
-                end_timestamp = int(end_date.timestamp())
+                # Reddit search doesn't support timestamp queries, but we can search for common terms
+                # and filter by date. This helps find posts that .top() might miss.
+                search_queries = [
+                    "",  # Empty query returns all posts (sorted by relevance/score)
+                    subreddit_name,  # Search for the subreddit name itself
+                ]
                 
-                # Reddit search API doesn't support timestamp queries directly
-                # Instead, search for common terms and filter by date
-                # This is a workaround for narrow historical windows
-                print(f"🔍 Reddit search API doesn't support timestamp queries")
-                print(f"🔍 Using .top() with aggressive fetching instead...")
+                # Try search with different sort methods
+                for search_query in search_queries:
+                    if len(posts) >= limit:
+                        break
+                    
+                    for sort in ['relevance', 'top', 'new']:
+                        if len(posts) >= limit:
+                            break
+                        
+                        try:
+                            print(f"🔍 Searching with query='{search_query or '(all)'}', sort='{sort}'...")
+                            
+                            search_results = subreddit.search(
+                                query=search_query,
+                                sort=sort,
+                                limit=1000,  # Max Reddit allows
+                                time_filter='all'
+                            )
+                            
+                            search_count = 0
+                            for post in search_results:
+                                search_count += 1
+                                if len(posts) >= limit:
+                                    break
+                                
+                                post_time = datetime.utcfromtimestamp(post.created_utc)
+                                if post_time < begin_date or post_time > end_date:
+                                    continue
+                                
+                                post_url = f"https://reddit.com{getattr(post, 'permalink', '')}"
+                                if post_url in seen_urls:
+                                    continue
+                                seen_urls.add(post_url)
+                                
+                                posts.append({
+                                    "source": "reddit",
+                                    "title": clean_text(getattr(post, "title", "")),
+                                    "content": clean_text(getattr(post, "selftext", "")),
+                                    "author": (post.author.name if getattr(post, "author", None) else "[deleted]"),
+                                    "url": post_url,
+                                    "score": getattr(post, "score", 0),
+                                    "timestamp": post_time.isoformat() + "Z",
+                                    "id": post.id,
+                                    "strategy": "search",
+                                    "time_filter": sort
+                                })
+                            
+                            if search_count > 0:
+                                found = len([p for p in posts if p.get('strategy') == 'search' and p.get('time_filter') == sort])
+                                print(f"✅ Search ({sort}): {found} posts in date range (checked {search_count} posts)")
+                        except Exception as e:
+                            print(f"⚠️ Search ({sort}) failed: {e}")
+                            continue
                     
             except Exception as e:
                 print(f"⚠️ Search API failed: {e}")
@@ -368,8 +420,9 @@ def collect_reddit_posts_with_overlapper(
                             # For narrow windows, fetch even more aggressively
                             if use_search:
                                 # Narrow historical window: fetch VERY aggressively
-                                # Reddit API limits to ~1000 per call, but we can make multiple calls
-                                fetch_limit = min(10000, max(5000, limit * 500))  # Fetch 500x or at least 5000
+                                # We've already tried search, so now fetch maximum from .top()
+                                # Reddit API limits to ~1000 per call, but we request the max
+                                fetch_limit = 1000  # Reddit's maximum per call
                             else:
                                 fetch_limit = min(10000, max(1000, limit * 100))  # Fetch 100x or at least 1000
                         elif time_filter == 'year':
