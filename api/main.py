@@ -155,19 +155,7 @@ async def health_check():
 @app.post("/scrape-multi-source")
 async def scrape_multiple_sources(request: ScrapeRequest):
     try:
-        # Aggressive limits to prevent timeouts on free tier
-        # Reduce limits based on number of sources
-        num_sources = len(request.sources)
-        if num_sources >= 4:
-            max_limit = min(request.limit_per_source, 20)  # Very small for many sources
-        elif num_sources >= 3:
-            max_limit = min(request.limit_per_source, 30)
-        elif num_sources >= 2:
-            max_limit = min(request.limit_per_source, 50)
-        else:
-            max_limit = min(request.limit_per_source, 100)
-        
-        # Parse date range
+        # Parse date range first to detect large historical ranges
         if request.begin_date and request.end_date:
             begin_date = datetime.strptime(request.begin_date, '%Y-%m-%d')
             end_date = datetime.strptime(request.end_date, '%Y-%m-%d')
@@ -177,6 +165,42 @@ async def scrape_multiple_sources(request: ScrapeRequest):
             delta = time_mapping.get(request.days, timedelta(weeks=1))
             end_date = datetime.utcnow()
             begin_date = end_date - delta
+        
+        # Detect large historical ranges (3+ years or 1000+ days)
+        days_diff = (end_date - begin_date).days
+        now = datetime.utcnow()
+        if end_date > now:
+            days_ago = (now - begin_date).days
+        else:
+            days_ago = (now - end_date).days
+        months_ago = days_ago / 30
+        
+        is_large_historical = days_diff > 1000 or months_ago > 36  # 3+ years or 1000+ days range
+        
+        # Aggressive limits to prevent timeouts on free tier
+        # BUT: Increase limits for large historical ranges (they need more posts)
+        num_sources = len(request.sources)
+        if is_large_historical:
+            # For large historical ranges (3+ years), allow much higher limits
+            # These ranges need more posts to be useful
+            if num_sources >= 4:
+                max_limit = min(request.limit_per_source, 100)  # Increased for historical
+            elif num_sources >= 3:
+                max_limit = min(request.limit_per_source, 200)  # Increased for historical
+            elif num_sources >= 2:
+                max_limit = min(request.limit_per_source, 400)  # Much higher for 3-year periods (was 50)
+            else:
+                max_limit = min(request.limit_per_source, 800)  # Much higher for single source (was 100)
+        else:
+            # Normal limits for recent data
+            if num_sources >= 4:
+                max_limit = min(request.limit_per_source, 20)  # Very small for many sources
+            elif num_sources >= 3:
+                max_limit = min(request.limit_per_source, 30)
+            elif num_sources >= 2:
+                max_limit = min(request.limit_per_source, 50)
+            else:
+                max_limit = min(request.limit_per_source, 100)
         
         all_posts = []
         hashtag_bank = set()

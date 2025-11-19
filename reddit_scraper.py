@@ -455,7 +455,11 @@ def collect_reddit_posts_with_overlapper(
                             if is_large_historical:
                                 # For 3-year periods, fetch VERY aggressively
                                 # Reddit API limits to ~1000 per call, but we can make multiple calls
-                                fetch_limit = min(5000, max(2000, limit * 50))  # Fetch 50x or at least 2000
+                                # For large limits (400+), fetch even more aggressively
+                                if limit >= 300:
+                                    fetch_limit = min(10000, max(5000, limit * 100))  # Fetch 100x for very large limits
+                                else:
+                                    fetch_limit = min(5000, max(2000, limit * 50))  # Fetch 50x or at least 2000
                             elif is_narrow_historical or is_historical:
                                 # For historical windows, fetch aggressively
                                 fetch_limit = min(3000, max(1000, limit * 30))  # Fetch 30x or at least 1000
