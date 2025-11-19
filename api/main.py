@@ -177,6 +177,11 @@ async def scrape_multiple_sources(request: ScrapeRequest):
         
         is_large_historical = days_diff > 1000 or months_ago > 36  # 3+ years or 1000+ days range
         
+        # Log the request details
+        print(f"📊 API Request: query='{request.query}', sources={request.sources}, requested_limit={request.limit_per_source}")
+        print(f"📅 Date range: {begin_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} ({days_diff} days)")
+        print(f"📅 Is large historical: {is_large_historical} (months_ago={months_ago:.1f})")
+        
         # Aggressive limits to prevent timeouts on free tier
         # BUT: Increase limits for large historical ranges (they need more posts)
         num_sources = len(request.sources)
@@ -202,18 +207,26 @@ async def scrape_multiple_sources(request: ScrapeRequest):
             else:
                 max_limit = min(request.limit_per_source, 100)
         
+        # Log the effective limit
+        if max_limit < request.limit_per_source:
+            print(f"⚠️  Limit capped: requested={request.limit_per_source}, effective={max_limit} (reason: {'large_historical' if is_large_historical else 'normal'} range, {num_sources} sources)")
+        else:
+            print(f"✅ Limit used: {max_limit} (no cap applied)")
+        
         all_posts = []
         hashtag_bank = set()
         
         # Step 1: Scrape Reddit with overlapper functionality
         if 'reddit' in request.sources:
             try:
+                print(f"🔍 Scraping Reddit with limit={max_limit}...")
                 reddit_posts = collect_reddit_posts_with_overlapper(
                     subreddit_name=request.query,
                     begin_date=begin_date,
                     end_date=end_date,
                     limit=max_limit
                 )
+                print(f"✅ Reddit returned {len(reddit_posts)} posts (requested {max_limit})")
                 all_posts.extend(reddit_posts)
                 
                 # Extract hashtag bank from Reddit posts (only if we have posts)
@@ -289,6 +302,7 @@ async def scrape_multiple_sources(request: ScrapeRequest):
             source = post.get("source", "unknown")
             source_breakdown[source] = source_breakdown.get(source, 0) + 1
         
+        # Return metadata about limits used
         return {
             "status": "success",
             "query": request.query,
@@ -297,7 +311,14 @@ async def scrape_multiple_sources(request: ScrapeRequest):
             "total_posts": len(all_posts),
             "source_breakdown": source_breakdown,
             "hashtags": list(hashtag_bank),
-            "all_posts": all_posts
+            "all_posts": all_posts,
+            "limit_info": {
+                "requested_limit": request.limit_per_source,
+                "effective_limit": max_limit,
+                "was_capped": max_limit < request.limit_per_source,
+                "is_large_historical": is_large_historical,
+                "num_sources": num_sources
+            }
         }
         
     except Exception as e:
