@@ -1,16 +1,18 @@
 """
 CollectPosts - Colab-Compatible Tester
 Test the deployed API service from Google Colab
+Supports both time_period and date range testing
 """
 
 import requests
 import pandas as pd
 from IPython.display import display
 import time
+from datetime import datetime, timedelta
 
 BASE_URL = "https://collectposts.onrender.com"
 
-def scrape_once(query, sources, limit=100, time_period="week", timeout=300):
+def scrape_once(query, sources, limit=100, time_period="week", begin_date=None, end_date=None, timeout=300):
     """
     Scrape posts from CollectPosts API
     
@@ -19,28 +21,38 @@ def scrape_once(query, sources, limit=100, time_period="week", timeout=300):
         sources: List of sources (e.g., ["reddit", "youtube"])
         limit: Posts per source (default: 100)
         time_period: "hour", "day", "week", "month", or "year" (default: "week")
-        timeout: Request timeout in seconds (default: 200)
+                     Only used if begin_date/end_date are not provided
+        begin_date: Start date in "YYYY-MM-DD" format (optional, overrides time_period)
+        end_date: End date in "YYYY-MM-DD" format (optional, overrides time_period)
+        timeout: Request timeout in seconds (default: 300)
     
     Returns:
         df: DataFrame with posts
         meta: Metadata dictionary
     """
-    # Map time_period to days
-    time_mapping = {
-        "hour": 1,
-        "day": 1,
-        "week": 7,
-        "month": 30,
-        "year": 365
-    }
-    days = time_mapping.get(time_period.lower(), 7)
-    
     payload = {
         "query": query,
         "sources": sources,
-        "limit_per_source": limit,
-        "days": days
+        "limit_per_source": limit
     }
+    
+    # Use date range if provided, otherwise use time_period
+    if begin_date and end_date:
+        payload["begin_date"] = begin_date
+        payload["end_date"] = end_date
+        print(f"📅 Using date range: {begin_date} to {end_date}")
+    else:
+        # Map time_period to days
+        time_mapping = {
+            "hour": 1,
+            "day": 1,
+            "week": 7,
+            "month": 30,
+            "year": 365
+        }
+        days = time_mapping.get(time_period.lower(), 7)
+        payload["days"] = days
+        print(f"📅 Using time period: {time_period} ({days} days)")
     
     try:
         print(f"🔍 Scraping '{query}' from {sources} (last {time_period}, limit={limit})...")
@@ -158,42 +170,158 @@ def test_multiple_periods(query, sources, limit=100, periods=["hour", "day", "we
         return pd.DataFrame(), results_dict
 
 
+def test_date_ranges(query, sources, limit=100, date_ranges=None, timeout=300):
+    """
+    Test scraping with specific date ranges (for historical data testing)
+    
+    Args:
+        query: Search query
+        sources: List of sources
+        limit: Posts per source
+        date_ranges: List of (begin_date, end_date) tuples in "YYYY-MM-DD" format
+        timeout: Request timeout
+    
+    Returns:
+        results_dict: Dictionary of results per date range
+    """
+    if date_ranges is None:
+        # Default test cases
+        now = datetime.utcnow()
+        two_weeks_ago = (now - timedelta(days=14)).strftime("%Y-%m-%d")
+        one_month_ago = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+        three_months_ago = (now - timedelta(days=90)).strftime("%Y-%m-%d")
+        one_year_ago = (now - timedelta(days=365)).strftime("%Y-%m-%d")
+        three_years_ago = (now - timedelta(days=365*3)).strftime("%Y-%m-%d")
+        now_str = now.strftime("%Y-%m-%d")
+        
+        date_ranges = [
+            ("2024-11-01", "2024-11-15"),  # Narrow historical window
+            (two_weeks_ago, now_str),  # Two weeks ago
+            (one_month_ago, now_str),  # One month ago
+            (three_years_ago, now_str),  # 3-year period
+        ]
+    
+    results_dict = {}
+    
+    print(f"🧪 Testing '{query}' with {len(date_ranges)} date ranges...")
+    print("=" * 70)
+    
+    for begin_date, end_date in date_ranges:
+        print(f"\n📅 Testing: {begin_date} to {end_date}")
+        print("-" * 70)
+        
+        try:
+            df, meta = scrape_once(
+                query=query,
+                sources=sources,
+                limit=limit,
+                begin_date=begin_date,
+                end_date=end_date,
+                timeout=timeout
+            )
+            
+            results_dict[f"{begin_date}_{end_date}"] = {
+                "df": df,
+                "meta": meta,
+                "begin_date": begin_date,
+                "end_date": end_date
+            }
+            
+            if len(df) > 0:
+                print(f"✅ {len(df)} posts found")
+                if meta.get("source_breakdown"):
+                    print(f"📊 Breakdown: {meta['source_breakdown']}")
+            else:
+                print(f"⚠️  No posts found")
+            
+            time.sleep(1)  # Small delay to avoid rate limiting
+            
+        except Exception as e:
+            print(f"❌ Error: {str(e)}")
+            results_dict[f"{begin_date}_{end_date}"] = {
+                "df": pd.DataFrame(),
+                "meta": {"error": str(e)},
+                "begin_date": begin_date,
+                "end_date": end_date
+            }
+    
+    return results_dict
+
+
 # Example usage for Colab
 if __name__ == "__main__":
     # Test parameters - START WITH SMALLER VALUES FOR TESTING
     QUERY = "progun"
     SOURCES = ["reddit", "youtube"]  # Start with fewer sources
-    TIME_PERIODS = ["week", "month"]  # Start with fewer periods
     LIMIT = 50  # Start with smaller limit
     TIMEOUT = 300  # Increased timeout
     
-    print("🚀 CollectPosts - Full Source × Time Period Tester (Notebook)")
-    print("=" * 60)
+    print("🚀 CollectPosts - External API Tester (Colab)")
+    print("=" * 70)
     print(f"Query: {QUERY}")
     print(f"Sources: {', '.join(SOURCES)}")
-    print(f"Time periods: {', '.join(TIME_PERIODS)}")
     print(f"Limit/source: {LIMIT}")
     print(f"Timeout: {TIMEOUT}s")
-    print("=" * 60)
+    print("=" * 70)
     
-    # Run test
-    combined, results = test_multiple_periods(
-        query=QUERY,
-        sources=SOURCES,
-        limit=LIMIT,
-        periods=TIME_PERIODS
-    )
+    # TEST 1: Narrow historical window (2 weeks ago)
+    print("\n" + "=" * 70)
+    print("TEST 1: Two Weeks Ago")
+    print("=" * 70)
+    now = datetime.utcnow()
+    two_weeks_ago = (now - timedelta(days=14)).strftime("%Y-%m-%d")
+    now_str = now.strftime("%Y-%m-%d")
+    df1, meta1 = scrape_once(QUERY, SOURCES, limit=LIMIT, begin_date=two_weeks_ago, end_date=now_str, timeout=TIMEOUT)
+    print(f"Result: {len(df1)} posts\n")
+    
+    # TEST 2: Narrow historical window (specific dates)
+    print("=" * 70)
+    print("TEST 2: Specific Date Range (2024-11-01 to 2024-11-15)")
+    print("=" * 70)
+    df2, meta2 = scrape_once(QUERY, SOURCES, limit=LIMIT, begin_date="2024-11-01", end_date="2024-11-15", timeout=TIMEOUT)
+    print(f"Result: {len(df2)} posts\n")
+    
+    # TEST 3: 3-year period
+    print("=" * 70)
+    print("TEST 3: 3-Year Period")
+    print("=" * 70)
+    three_years_ago = (now - timedelta(days=365*3)).strftime("%Y-%m-%d")
+    df3, meta3 = scrape_once(QUERY, SOURCES, limit=500, begin_date=three_years_ago, end_date=now_str, timeout=TIMEOUT)
+    print(f"Result: {len(df3)} posts\n")
+    
+    # Summary
+    print("=" * 70)
+    print("SUMMARY")
+    print("=" * 70)
+    print(f"TEST 1 (2 weeks ago): {len(df1)} posts")
+    print(f"TEST 2 (2024-11-01 to 2024-11-15): {len(df2)} posts")
+    print(f"TEST 3 (3-year period): {len(df3)} posts")
     
     # Save results
-    if len(combined) > 0:
-        output_file = f"collectposts_results_{QUERY}_{int(time.time())}.csv"
-        combined.to_csv(output_file, index=False)
-        print(f"\n💾 Results saved to: {output_file}")
+    if len(df1) > 0 or len(df2) > 0 or len(df3) > 0:
+        output_file = f"collectposts_test_{QUERY}_{int(time.time())}.csv"
+        all_dfs = []
+        if len(df1) > 0:
+            df1_copy = df1.copy()
+            df1_copy['test'] = '2_weeks_ago'
+            all_dfs.append(df1_copy)
+        if len(df2) > 0:
+            df2_copy = df2.copy()
+            df2_copy['test'] = 'narrow_historical'
+            all_dfs.append(df2_copy)
+        if len(df3) > 0:
+            df3_copy = df3.copy()
+            df3_copy['test'] = '3_year_period'
+            all_dfs.append(df3_copy)
         
-        # Display sample
-        print("\n📋 Sample rows:")
-        display(combined.head(10))
+        if all_dfs:
+            combined = pd.concat(all_dfs, ignore_index=True)
+            combined.to_csv(output_file, index=False)
+            print(f"\n💾 Results saved to: {output_file}")
+            
+            # Display sample
+            print("\n📋 Sample rows:")
+            display(combined.head(10))
     else:
-        print("\n⚠️  No results gathered across the selected periods & sources.")
-        print("💡 Try widening periods/sources or increasing LIMIT.")
+        print("\n⚠️  No results gathered. Check API status and parameters.")
 

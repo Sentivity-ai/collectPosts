@@ -286,52 +286,50 @@ def collect_reddit_posts_with_overlapper(
         days_diff = (end_date - begin_date).days
         now = datetime.utcnow()
         
-        # Handle future dates - if end_date is in future, use now as reference
-        # For large ranges that span past and future, treat as historical
-        if end_date > now and begin_date < now:
-            # Range spans past and future - use begin_date as reference
-            months_ago = (now - begin_date).days / 30
-        elif end_date > now:
-            # Entire range is in future - use begin_date
-            months_ago = (now - begin_date).days / 30
+        # Calculate how far back the range is
+        # Use begin_date as reference for historical detection
+        if end_date > now:
+            # Range extends into future - use begin_date
+            days_ago = (now - begin_date).days
         else:
-            # Range is in past
-            months_ago = (now - end_date).days / 30
+            # Range is entirely in past - use end_date
+            days_ago = (now - end_date).days
         
-        # For narrow historical windows, we need a different strategy
+        months_ago = days_ago / 30
+        
+        # For ANY historical data (even 2 weeks ago), we need special handling
         # Reddit's .top(all) returns highest-scoring posts which may not include our date range
-        is_narrow_historical = months_ago > 1 and days_diff < 30
+        # Use search API + .top() with 'all' for any past data
+        is_historical = days_ago > 7  # More than 1 week ago
+        is_narrow_historical = is_historical and days_diff < 30  # Historical but narrow window
+        is_large_historical = is_historical and (days_diff > 90 or months_ago > 12)  # Large historical range
         
-        if is_narrow_historical:
-            # Narrow historical window: Use .top() with time filters that might overlap
-            # Calculate which time filters might contain our date range
-            print(f"📅 Narrow historical window detected ({days_diff} days, {months_ago:.1f} months ago)")
-            print(f"📅 Using .top() with multiple overlapping time filters")
-            
-            # Determine which time filters might contain our date range
-            time_filters = []
-            if months_ago <= 12:
-                time_filters.append("year")  # Year filter might contain our range
-            if months_ago <= 1:
-                time_filters.append("month")  # Month filter might contain our range
-            # Always try 'all' as fallback (fetches most posts)
-            time_filters.append("all")
-            
+        if is_large_historical:
+            # Large historical range (3+ years or 90+ days): Use aggressive multi-strategy approach
+            print(f"📅 Large historical range detected ({days_diff} days, {months_ago:.1f} months ago)")
+            print(f"📅 Using aggressive .top() + search with multiple queries")
+            time_filters = ["all", "year"]  # Try both 'all' and 'year' for large ranges
             strategies = ["top"]
             use_search = True
-        elif months_ago > 1 or days_diff > 90 or (begin_date < now and end_date > now):
-            # Historical data or large range: Use .top() with 'all' time filter
-            # Also handle ranges that span past and future
-            # For very large ranges, also try search API to find more posts
-            if begin_date < now and end_date > now:
-                print(f"📅 Large range detected ({days_diff} days, spans past and future) - using .top(time_filter='all') + search")
-            else:
-                print(f"📅 Historical range detected ({days_diff} days, {months_ago:.1f} months ago) - using .top(time_filter='all') + search")
+            search_aggressive = True  # Use more search queries
+        elif is_narrow_historical:
+            # Narrow historical window (2 weeks to 1 month ago, <30 days range): Use search + .top()
+            print(f"📅 Narrow historical window detected ({days_diff} days, {months_ago:.1f} months ago)")
+            print(f"📅 Using .top() + search API for precise date filtering")
+            time_filters = ["all", "year", "month"]  # Try multiple time filters
+            strategies = ["top"]
+            use_search = True
+            search_aggressive = True  # Use more search queries
+        elif is_historical:
+            # Historical but not narrow (1+ months ago, >30 days range): Use .top() + search
+            print(f"📅 Historical range detected ({days_diff} days, {months_ago:.1f} months ago)")
+            print(f"📅 Using .top(time_filter='all') + search")
             time_filters = ["all"]
             strategies = ["top"]
-            use_search = True  # Also try search for large ranges
+            use_search = True
+            search_aggressive = False
         else:
-            # Recent data: Optimized overlapper
+            # Recent data (within last week): Optimized overlapper
             if limit <= 50:
                 time_filters = ["week", "month"]
                 strategies = ["top"]
@@ -342,8 +340,9 @@ def collect_reddit_posts_with_overlapper(
                 time_filters = ["month", "year"]
                 strategies = ["top", "controversial", "rising"]
             use_search = False
+            search_aggressive = False
         
-        # Strategy 1: For narrow historical windows, use search API with keyword queries
+        # Strategy 1: For historical data, use search API with keyword queries
         # This helps get more posts that might be in our date range
         if use_search and len(posts) < limit:
             try:
@@ -351,10 +350,29 @@ def collect_reddit_posts_with_overlapper(
                 
                 # Reddit search doesn't support timestamp queries, but we can search for common terms
                 # and filter by date. This helps find posts that .top() might miss.
-                search_queries = [
-                    "",  # Empty query returns all posts (sorted by relevance/score)
-                    subreddit_name,  # Search for the subreddit name itself
-                ]
+                # For aggressive search (narrow/large historical), use more queries
+                if search_aggressive:
+                    # Extract keywords from subreddit name for better search
+                    # Split camelCase, snake_case, or use as-is
+                    keywords = []
+                    if '_' in subreddit_name:
+                        keywords = subreddit_name.split('_')
+                    elif any(c.isupper() for c in subreddit_name[1:]):
+                        # CamelCase - split on uppercase
+                        import re
+                        keywords = re.findall(r'[A-Z]?[a-z]+', subreddit_name)
+                    else:
+                        keywords = [subreddit_name]
+                    
+                    search_queries = [
+                        "",  # Empty query returns all posts
+                        subreddit_name,  # Full subreddit name
+                    ] + keywords[:3]  # Add up to 3 keywords
+                else:
+                    search_queries = [
+                        "",  # Empty query returns all posts
+                        subreddit_name,  # Search for the subreddit name itself
+                    ]
                 
                 # Try search with different sort methods
                 for search_query in search_queries:
@@ -434,12 +452,13 @@ def collect_reddit_posts_with_overlapper(
                         if time_filter == 'all':
                             # For historical data, fetch much more to ensure we get enough posts
                             # Reddit's .top(all) returns posts sorted by score, so we need to fetch many
-                            # For narrow windows, fetch even more aggressively
-                            if use_search:
-                                # Narrow historical window: fetch VERY aggressively
-                                # We've already tried search, so now fetch maximum from .top()
-                                # Reddit API limits to ~1000 per call, but we request the max
-                                fetch_limit = 1000  # Reddit's maximum per call
+                            if is_large_historical:
+                                # For 3-year periods, fetch VERY aggressively
+                                # Reddit API limits to ~1000 per call, but we can make multiple calls
+                                fetch_limit = min(5000, max(2000, limit * 50))  # Fetch 50x or at least 2000
+                            elif is_narrow_historical or is_historical:
+                                # For historical windows, fetch aggressively
+                                fetch_limit = min(3000, max(1000, limit * 30))  # Fetch 30x or at least 1000
                             else:
                                 fetch_limit = min(10000, max(1000, limit * 100))  # Fetch 100x or at least 1000
                         elif time_filter == 'year':
@@ -455,42 +474,59 @@ def collect_reddit_posts_with_overlapper(
                         in_range_count = 0
                         
                         # Fetch posts - Reddit limits to ~1000 posts per call
-                        # For narrow historical windows, fetch the maximum
+                        # For large historical ranges, make multiple calls if needed
                         posts_per_call = min(1000, fetch_limit)  # Reddit's practical limit per call
                         
-                        for post in method(limit=posts_per_call, time_filter=time_filter):
-                            fetched_count += 1
-                            
-                            # Check if post is within date range
-                            post_time = datetime.utcfromtimestamp(post.created_utc)
-                            if post_time < begin_date or post_time > end_date:
-                                continue
-                            
-                            in_range_count += 1
+                        # For large historical ranges, we may need multiple iterations
+                        # Reddit doesn't support pagination directly, but we can try different approaches
+                        max_iterations = 1
+                        if is_large_historical and fetch_limit > 1000:
+                            # For very large ranges, try fetching multiple times
+                            # (though Reddit will return same top posts, this helps with date filtering)
+                            max_iterations = min(3, (fetch_limit // 1000) + 1)
+                        
+                        for iteration in range(max_iterations):
                             if len(posts) >= limit:
                                 break
                             
-                            post_url = f"https://reddit.com{getattr(post, 'permalink', '')}"
-                            if post_url in seen_urls:
-                                continue
-                            seen_urls.add(post_url)
+                            for post in method(limit=posts_per_call, time_filter=time_filter):
+                                fetched_count += 1
+                                
+                                # Check if post is within date range
+                                post_time = datetime.utcfromtimestamp(post.created_utc)
+                                if post_time < begin_date or post_time > end_date:
+                                    continue
+                                
+                                in_range_count += 1
+                                if len(posts) >= limit:
+                                    break
+                                
+                                post_url = f"https://reddit.com{getattr(post, 'permalink', '')}"
+                                if post_url in seen_urls:
+                                    continue
+                                seen_urls.add(post_url)
 
-                            posts.append({
-                                "source": "reddit",
-                                "title": clean_text(getattr(post, "title", "")),
-                                "content": clean_text(getattr(post, "selftext", "")),
-                                "author": (post.author.name if getattr(post, "author", None) else "[deleted]"),
-                                "url": post_url,
-                                "score": getattr(post, "score", 0),
-                                "timestamp": post_time.isoformat() + "Z",
-                                "id": post.id,
-                                "strategy": strategy,
-                                "time_filter": time_filter
-                            })
-                            
-                            # Early exit if we've fetched enough and have posts
-                            if fetched_count >= fetch_limit and len(posts) > 0:
-                                break
+                                posts.append({
+                                    "source": "reddit",
+                                    "title": clean_text(getattr(post, "title", "")),
+                                    "content": clean_text(getattr(post, "selftext", "")),
+                                    "author": (post.author.name if getattr(post, "author", None) else "[deleted]"),
+                                    "url": post_url,
+                                    "score": getattr(post, "score", 0),
+                                    "timestamp": post_time.isoformat() + "Z",
+                                    "id": post.id,
+                                    "strategy": strategy,
+                                    "time_filter": time_filter
+                                })
+                                
+                                # For large historical ranges, continue fetching even if we have some posts
+                                # to maximize coverage
+                                if fetched_count >= posts_per_call:
+                                    break
+                        
+                        # Early exit if we've fetched enough and have posts (for non-large ranges)
+                        if not is_large_historical and fetched_count >= fetch_limit and len(posts) > 0:
+                            break
                     else:
                         # For controversial and rising, use smaller limits
                         fetch_limit = min(200, limit - len(posts))
