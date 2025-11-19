@@ -248,11 +248,10 @@ async def scrape_multiple_sources(request: ScrapeRequest):
                 
             try:
                 if source == 'youtube':
-                    # YouTube gets hard limit
                     posts = collect_youtube_video_titles(
                         query=request.query,
                         hashtags=search_terms,
-                        max_results=min(30, max_limit),  # Reduced hard limit
+                        max_results=max_limit,  # Use requested limit directly
                         begin_date=begin_date,
                         end_date=end_date
                     )
@@ -261,7 +260,7 @@ async def scrape_multiple_sources(request: ScrapeRequest):
                     posts = collect_instagram_posts(
                         query=request.query,
                         hashtags=search_terms,
-                        max_posts=min(20, max_limit),  # Reduced limit
+                        max_posts=max_limit,  # Use requested limit directly
                         begin_date=begin_date,
                         end_date=end_date
                     )
@@ -271,7 +270,7 @@ async def scrape_multiple_sources(request: ScrapeRequest):
                         query=request.query,
                         hashtags=search_terms,
                         time_passed="week",
-                        limit=min(20, max_limit),  # Reduced limit
+                        limit=max_limit,  # Use requested limit directly
                         begin_date=begin_date,
                         end_date=end_date
                     )
@@ -281,13 +280,13 @@ async def scrape_multiple_sources(request: ScrapeRequest):
                         query=request.query,
                         hashtags=search_terms,
                         time_passed="week",
-                        limit=min(20, max_limit),  # Reduced limit
+                        limit=max_limit,  # Use requested limit directly
                         begin_date=begin_date,
                         end_date=end_date
                     )
                 
-                # Random sample (except YouTube has hard limit)
-                if source != 'youtube' and len(posts) > max_limit:
+                # Random sample if we got more posts than requested
+                if len(posts) > max_limit:
                     posts = random.sample(posts, max_limit)
                 
                 all_posts.extend(posts)

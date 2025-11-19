@@ -25,14 +25,15 @@ def extract_video_id_from_url(url: str) -> str:
 def collect_youtube_video_titles(
     query: str = "politics", 
     hashtags: List[str] = None,
-    max_results: int = 50,  # Hard limit to avoid API issues
+    max_results: int = 50,
     time_period_days: int = 30,
     begin_date: datetime = None,
     end_date: datetime = None
 ) -> List[Dict]:
     """
-    YouTube scraper with hard limits and .top() equivalent methods
+    YouTube scraper with .top() equivalent methods
     Uses hashtags from Reddit to find relevant content
+    Supports pagination for limits > 50
     """
     api_key = os.getenv("YOUTUBE_API_KEY", "AIzaSyAZwLva1HxzDbKFJuE9RVcxS5B4q_ol8yE")
     posts = []
@@ -47,13 +48,12 @@ def collect_youtube_video_titles(
     if not end_date:
         end_date = datetime.utcnow()
     
-    # Hard limit enforcement
-    max_results = min(max_results, 50)  # YouTube API limit per request
-    
+    # YouTube API allows max 50 results per request, but we can make multiple requests
+    # Remove hard limit - use requested limit and paginate if needed
     try:
         # Use hashtags if provided, otherwise use query
         search_terms = hashtags[:10] if hashtags else [query]  # Limit to 10 hashtags
-        print(f"🔍 Scraping YouTube for '{query}' with {len(search_terms)} hashtags (HARD LIMIT: {max_results}) from {begin_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        print(f"🔍 Scraping YouTube for '{query}' with {len(search_terms)} hashtags (limit: {max_results}) from {begin_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
         
         # Strategy 1: Use 'relevance' order (closest to .top())
         orders = ['relevance', 'viewCount', 'rating']
@@ -73,62 +73,82 @@ def collect_youtube_video_titles(
                     published_after = begin_date.strftime("%Y-%m-%dT%H:%M:%SZ")
                     published_before = end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-                    params = {
-                        "part": "snippet",
-                        "q": search_term,
-                        "type": "video",
-                        "maxResults": min(50, max_results - len(posts)),
-                        "key": api_key,
-                        "order": order,
-                        "publishedAfter": published_after,
-                        "publishedBefore": published_before
-                    }
+                    # YouTube API allows max 50 per request, but we can paginate
+                    next_page_token = None
+                    requests_made = 0
+                    max_requests = (max_results // 50) + 1  # Calculate how many requests needed
                     
-                    response = requests.get(url, params=params, timeout=15)
-                    response.raise_for_status()
-                    data = response.json()
-                    
-                    if "error" in data:
-                        print(f"❌ YouTube API error: {data['error']['message']}")
-                        break
-                    
-                    for item in data.get("items", []):
-                        if len(posts) >= max_results:
+                    while len(posts) < max_results and requests_made < max_requests:
+                        remaining = max_results - len(posts)
+                        params = {
+                            "part": "snippet",
+                            "q": search_term,
+                            "type": "video",
+                            "maxResults": min(50, remaining),  # YouTube API max is 50 per request
+                            "key": api_key,
+                            "order": order,
+                            "publishedAfter": published_after,
+                            "publishedBefore": published_before
+                        }
+                        
+                        if next_page_token:
+                            params["pageToken"] = next_page_token
+                        
+                        response = requests.get(url, params=params, timeout=15)
+                        response.raise_for_status()
+                        data = response.json()
+                        
+                        if "error" in data:
+                            print(f"❌ YouTube API error: {data['error']['message']}")
                             break
                         
-                        video_id = item["id"].get("videoId")
-                        if not video_id:
-                            continue
-                        
-                        title = item["snippet"]["title"]
-                        video_url = f"https://www.youtube.com/watch?v={video_id}"
-                        content = item["snippet"].get("description", "")
-                        published_str = item["snippet"].get("publishedAt", "")
-                        
-                        # Filter by date
-                        try:
-                            pub_dt = datetime.strptime(published_str, ISO8601).replace(tzinfo=timezone.utc)
-                        except Exception:
-                            continue  # skip if invalid timestamp
+                        for item in data.get("items", []):
+                            if len(posts) >= max_results:
+                                break
+                            
+                            video_id = item["id"].get("videoId")
+                            if not video_id:
+                                continue
+                            
+                            title = item["snippet"]["title"]
+                            video_url = f"https://www.youtube.com/watch?v={video_id}"
+                            content = item["snippet"].get("description", "")
+                            published_str = item["snippet"].get("publishedAt", "")
+                            
+                            # Filter by date
+                            try:
+                                pub_dt = datetime.strptime(published_str, ISO8601).replace(tzinfo=timezone.utc)
+                            except Exception:
+                                continue  # skip if invalid timestamp
 
-                        # Double-check date range
-                        if pub_dt.replace(tzinfo=None) < begin_date or pub_dt.replace(tzinfo=None) > end_date:
-                            continue
+                            # Double-check date range
+                            if pub_dt.replace(tzinfo=None) < begin_date or pub_dt.replace(tzinfo=None) > end_date:
+                                continue
+                            
+                            posts.append({
+                                "source": "youtube",
+                                "title": clean_text(title),
+                                "content": clean_text(content),
+                                "author": item["snippet"]["channelTitle"],
+                                "url": video_url,
+                                "score": random.randint(100, 10000),
+                                "timestamp": published_str,
+                                "search_term": search_term
+                            })
                         
-                        posts.append({
-                            "source": "youtube",
-                            "title": clean_text(title),
-                            "content": clean_text(content),
-                            "author": item["snippet"]["channelTitle"],
-                            "url": video_url,
-                            "score": random.randint(100, 10000),
-                            "timestamp": published_str,
-                            "search_term": search_term
-                        })
+                        # Get next page token for pagination
+                        next_page_token = data.get("nextPageToken")
+                        requests_made += 1
+                        
+                        if not next_page_token:
+                            break  # No more pages
+                        
+                        # Rate limiting between requests
+                        time.sleep(1)
                         
                     print(f"✅ {search_term}({order}): {len([p for p in posts if p.get('search_term') == search_term])} videos")
                     
-                    # Rate limiting
+                    # Rate limiting between different orders
                     time.sleep(1)
                     
                 except requests.exceptions.RequestException as e:
@@ -146,7 +166,7 @@ def collect_youtube_video_titles(
         if len(posts) == 0:
             print("⚠️ No YouTube results found within time window")
         else:
-            print(f"✅ YouTube scraping completed: {len(posts)} posts found (HARD LIMIT ENFORCED)")
+            print(f"✅ YouTube scraping completed: {len(posts)} posts found (requested {max_results})")
             
     except Exception as e:
         print(f"❌ YouTube error: {e}")
