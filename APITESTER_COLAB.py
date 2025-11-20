@@ -45,19 +45,20 @@ def scrape_date_range(query, sources, begin_date, end_date, limit=500):
     return df, result
 
 print("=" * 70)
-print("TEST 1: Testing Narrow Historical Window (2 weeks ago)")
+print("TEST 1: Testing Narrow Historical Window")
 print("=" * 70)
-# Use dynamic date range - 2 weeks ago to now
-now = datetime.utcnow()
-two_weeks_ago = (now - timedelta(days=14)).strftime("%Y-%m-%d")
-now_str = now.strftime("%Y-%m-%d")
-print(f"Date range: {two_weeks_ago} to {now_str}")
+# Test with a specific narrow historical date range
+# You can change these dates to test any narrow window
+test_begin_date = "2024-11-01"
+test_end_date = "2024-11-15"
+print(f"Date range: {test_begin_date} to {test_end_date}")
+print("(You can modify these dates in the code to test any narrow historical window)")
 
 df, meta = scrape_date_range(
     query="progun",
     sources=["reddit", "youtube"],
-    begin_date=two_weeks_ago,
-    end_date=now_str, 
+    begin_date=test_begin_date,
+    end_date=test_end_date, 
     limit=50
 )
 print(f"\nDataFrame shape: {df.shape}")
